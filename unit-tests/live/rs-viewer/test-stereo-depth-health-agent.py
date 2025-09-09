@@ -21,7 +21,20 @@ for a in ['--rslog']:
 # Environment-controlled settings
 SERVER_HOST = os.environ.get('AGENT_SERVER_HOST', '127.0.0.1')
 SERVER_PORT = int(os.environ.get('AGENT_SERVER_PORT', '8099'))
-TIMEOUT_SEC = float(os.environ.get('AGENT_SERVER_TIMEOUT_SEC', '300'))  # 5 minutes default
+
+DEFAULT_TIMEOUT_S = 300.0
+MIN_TIMEOUT_S = 180.0  # agent typically needs ~70s; give headroom
+
+_env_to = os.environ.get('AGENT_SERVER_TIMEOUT_SEC')
+try:
+    TIMEOUT_SEC = float(_env_to) if _env_to is not None else DEFAULT_TIMEOUT_S
+except Exception:
+    TIMEOUT_SEC = DEFAULT_TIMEOUT_S
+
+if TIMEOUT_SEC < MIN_TIMEOUT_S:
+    log.w(f'AGENT_SERVER_TIMEOUT_SEC too low ({TIMEOUT_SEC}s); clamping to {MIN_TIMEOUT_S}s')
+    TIMEOUT_SEC = MIN_TIMEOUT_S
+
 POLL_INTERVAL = float(os.environ.get('AGENT_SERVER_POLL_INTERVAL_SEC', '2'))
 FORCE = os.environ.get('AGENT_SERVER_FORCE', '0') in ('1', 'true', 'yes')
 CUSTOM_TASK = os.environ.get('AGENT_SERVER_TASK')
@@ -68,18 +81,18 @@ def _json_load(s):
 with test.closure("Stereo depth health scenario via agent server"):
     # Start realsense-viewer process
     rs_viewer = None
-    
+
     # Try to find realsense-viewer executable
     # First try the repo's built exe finder
     try:
         rs_viewer = repo.find_built_exe('tools/realsense-viewer', 'realsense-viewer')
     except Exception:
         pass
-    
+
     # If not found, try standard locations
     if not rs_viewer:
         rs_viewer = shutil.which('realsense-viewer')
-    
+
     # Try common build directories
     if not rs_viewer:
         for build_dir in ['build', '../build', './build']:
@@ -87,12 +100,12 @@ with test.closure("Stereo depth health scenario via agent server"):
             if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
                 rs_viewer = candidate
                 break
-    
+
     if not rs_viewer:
         log.e('realsense-viewer executable not found in build dirs or PATH!')
         log.e('Please ensure realsense-viewer is built or available in PATH')
         test.fail()
-    
+
     log.i('Starting realsense-viewer process:', rs_viewer)
     viewer_process = None
     try:
@@ -100,16 +113,16 @@ with test.closure("Stereo depth health scenario via agent server"):
         env = os.environ.copy()
         if 'DISPLAY' not in env:
             env['DISPLAY'] = ':0'  # Default X11 display
-        
+
         # Start realsense-viewer with GUI environment
-        viewer_process = subprocess.Popen([rs_viewer], 
-                                        stdout=subprocess.PIPE, 
-                                        stderr=subprocess.PIPE,
-                                        universal_newlines=True,
-                                        env=env)
+        viewer_process = subprocess.Popen([rs_viewer],
+                                          stdout=subprocess.PIPE,
+                                          stderr=subprocess.PIPE,
+                                          universal_newlines=True,
+                                          env=env)
         # Give viewer more time to start up and show GUI
         time.sleep(5)
-        
+
         if viewer_process.poll() is not None:
             # Get error output if process failed
             stdout, stderr = viewer_process.communicate()
@@ -117,13 +130,13 @@ with test.closure("Stereo depth health scenario via agent server"):
             log.e('stdout:', stdout)
             log.e('stderr:', stderr)
             test.fail()
-        
+
         log.i('realsense-viewer started with PID:', viewer_process.pid)
-        
+
         # Wait additional time for viewer to fully initialize before starting agent
-        log.i('Waiting 10 seconds for realsense-viewer to fully initialize...')
-        time.sleep(10)
-        
+        log.i('Waiting 5 seconds for realsense-viewer to fully initialize...')
+        time.sleep(5)
+
         # 1) Health check
         body, code = _http_get(BASE_URL + '/healthz')
         test.check(code == 200)
