@@ -4,12 +4,21 @@
 from rspy import test, log
 from agent_utils import AgentServerClient
 from unit_test_ux_common import ViewerProcessManager
+import subprocess
+import time
+import requests
+import platform
 
 with test.closure("Stereo depth health scenario via agent server"):
     viewer_mgr = ViewerProcessManager()
     agent = AgentServerClient()
     viewer_process = None
     try:
+        # Launch GUI control server for agent remote control
+        server_cmd = [sys.executable, 'gui_control_server.py']
+        server_proc = subprocess.Popen(server_cmd, cwd=os.path.dirname(__file__))
+        time.sleep(2)  # Wait for server to start
+
         # Start realsense-viewer process
         try:
             viewer_process = viewer_mgr.start()
@@ -17,6 +26,10 @@ with test.closure("Stereo depth health scenario via agent server"):
         except Exception as e:
             log.e(str(e))
             test.fail()
+
+        # Make RealSense Viewer fullscreen
+        requests.post('http://localhost:5001/action', json={'type': 'fullscreen'})
+        time.sleep(1)
 
         # Health check
         body, code = agent.health_check()
@@ -28,7 +41,11 @@ with test.closure("Stereo depth health scenario via agent server"):
             log.d('healthz:', body)
 
         # Start run
-        body, code = agent.start_run()
+        task = {
+            'description': 'Verify stereo module health',
+            'gui_control_url': f'http://{platform.node()}:5001'
+        }
+        body, code = agent.start_run(task)
         resp_json = agent.json_load(body)
         test.check(code in (200, 202))
         test.check(resp_json is not None)
@@ -45,7 +62,6 @@ with test.closure("Stereo depth health scenario via agent server"):
             if mode != 'blocking':
                 log.i('Server returned mode', mode, '- entering polling loop')
                 import time
-                start = time.time()
                 sleep_dt = agent.poll_interval if agent.poll_interval > 0 else 0.5
                 while time.time() - start < agent.timeout:
                     b2, c2 = agent.poll_status()
