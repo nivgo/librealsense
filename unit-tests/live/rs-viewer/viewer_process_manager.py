@@ -1,50 +1,41 @@
 import os
 import subprocess
 import time
+import platform
+from test_constants import TestTiming
 
 class ViewerProcessManager:
     def __init__(self, exe_path=None):
         self.exe_path = exe_path
         self.process = None
 
-    @staticmethod
-    def find_executable():
-        # Try repo finder, PATH, and common build dirs
-        import shutil
-        exe = None
-        try:
-            from rspy import repo
-            exe = repo.find_built_exe('tools/realsense-viewer', 'realsense-viewer')
-        except Exception:
-            pass
-        if not exe:
-            exe = shutil.which('realsense-viewer')
-        if not exe:
-            for build_dir in ['build', '../build', './build']:
-                candidate = os.path.join(build_dir, 'tools', 'realsense-viewer', 'realsense-viewer')
-                if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-                    exe = candidate
-                    break
-        return exe
-
     def start(self):
         if not self.exe_path:
-            self.exe_path = self.find_executable()
-        if not self.exe_path:
-            raise RuntimeError('realsense-viewer executable not found!')
+            raise RuntimeError('realsense-viewer executable path not provided!')
+            
         env = os.environ.copy()
-        if 'DISPLAY' not in env:
+        # DISPLAY is only needed on Linux
+        if platform.system() == 'Linux' and 'DISPLAY' not in env:
             env['DISPLAY'] = ':0'
+            
         self.process = subprocess.Popen([self.exe_path],
                                         stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE,
                                         universal_newlines=True,
                                         env=env)
-        time.sleep(5)
+        
+        # Wait longer for the viewer to start, especially on Windows
+        if platform.system() == 'Windows':
+            time.sleep(TestTiming.VIEWER_STARTUP_DELAY_WINDOWS)  # Extra time for Windows GUI apps
+        else:
+            time.sleep(TestTiming.VIEWER_STARTUP_DELAY)
+            
         if self.process.poll() is not None:
             stdout, stderr = self.process.communicate()
             raise RuntimeError(f'Process failed to start. stdout: {stdout}\nstderr: {stderr}')
-        time.sleep(5)
+        
+        # Additional wait to ensure the window is fully rendered
+        time.sleep(TestTiming.VIEWER_ADDITIONAL_WAIT)
         return self.process
 
     def cleanup(self):

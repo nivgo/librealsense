@@ -1,100 +1,98 @@
 # License: Apache 2.0. See LICENSE file in root directory.
+# Copyright(c) 2023 RealSense, Inc. All Rights Reserved.
+
 # Stereo Viewer Health Test invoking external agent automation.
 
-from rspy import test, log
-from agent_utils import AgentServerClient
-from unit_test_ux_common import ViewerProcessManager
-import subprocess
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+from rspy import test, log, repo
+from agent_server_client import AgentServerClient
+from viewer_process_manager import ViewerProcessManager 
+from gui_server_manager import GuiServerManager
+from test_constants import HttpStatusCode, TestTiming
 import time
-import requests
 import platform
 
 with test.closure("Stereo depth health scenario via agent server"):
-    viewer_mgr = ViewerProcessManager()
-    agent = AgentServerClient()
-    viewer_process = None
+    # Check if realsense-viewer executable exists (like test-enumerate-devices)
+    import platform
+    import shutil
+    exe_name = 'realsense-viewer.exe' if platform.system() == 'Windows' else 'realsense-viewer'
+    
+    # Try repo finder first, then fallback to PATH (like stable version)
+    rs_viewer_exe = repo.find_built_exe('tools/realsense-viewer', exe_name)
+    if not rs_viewer_exe:
+        rs_viewer_exe = shutil.which(exe_name)
+    
+    test.check(rs_viewer_exe)
+    
+    if not rs_viewer_exe:
+        log.e(f'no {exe_name} was found!')
+        log.e('On Windows: Make sure RealSense SDK is built and realsense-viewer.exe is in your PATH or built directory')
+        log.e('On Linux: Make sure RealSense SDK is built with DBUILD_TOOLS=ON')
+        import sys
+        log.d('sys.path=\n    ' + '\n    '.join(sys.path))
+    else:
+        log.d(f'Found realsense-viewer at: {rs_viewer_exe}')
+    
+    log.d(f'Found realsense-viewer at: {rs_viewer_exe}')
+    
+    # Initialize components
+    viewer_mgr = ViewerProcessManager(exe_path=rs_viewer_exe)
+    gui_server = GuiServerManager()
+    agent_client = AgentServerClient()
+
     try:
-        # Launch GUI control server for agent remote control
-        server_cmd = [sys.executable, 'gui_control_server.py']
-        server_proc = subprocess.Popen(server_cmd, cwd=os.path.dirname(__file__))
-        time.sleep(2)  # Wait for server to start
+        # 1) Launch and wait for GUI control server
+        test.check(gui_server.start())
 
-        # Start realsense-viewer process
-        try:
-            viewer_process = viewer_mgr.start()
-            log.i('realsense-viewer started with PID:', viewer_process.pid)
-        except Exception as e:
-            log.e(str(e))
-            test.fail()
+        # 2) Start RealSense Viewer
+        viewer_process = viewer_mgr.start()
+        log.i('realsense-viewer started with PID:', viewer_process.pid)
 
-        # Make RealSense Viewer fullscreen
-        requests.post('http://localhost:5001/action', json={'type': 'fullscreen'})
-        time.sleep(1)
+        # 3) Setup viewer window
+        log.i('Setting up viewer window...')
+        gui_server.control_viewer('focus_viewer', logger_func=log.i)
+        time.sleep(TestTiming.WINDOW_FOCUS_DELAY)
+        gui_server.control_viewer('maximize_viewer', logger_func=log.i)
+        time.sleep(TestTiming.WINDOW_MAXIMIZE_DELAY)
+        gui_server.control_viewer('fullscreen', logger_func=log.i)
+        log.i('Viewer window setup completed')
 
-        # Health check
-        body, code = agent.health_check()
-        test.check(code == 200)
-        if code != 200:
-            log.e('Health check failed:', code, body)
-            test.fail()
-        else:
-            log.d('healthz:', body)
+        # 4) Agent health check - is agent responding
+        health_body, health_code = agent_client.health_check()
+        log.i('Agent health check result:', f'code={health_code}, body={health_body}')
+        log.i('Agent base URL:', agent_client.base_url)
+        test.check(health_code == HttpStatusCode.OK)
+        log.d('Agent health:', health_body)
 
-        # Start run
-        task = {
-            'description': 'Verify stereo module health',
-            'gui_control_url': f'http://{platform.node()}:5001'
-        }
-        body, code = agent.start_run(task)
-        resp_json = agent.json_load(body)
-        test.check(code in (200, 202))
-        test.check(resp_json is not None)
-        if resp_json is None:
-            log.e('Non-JSON response:', (body or '')[:300])
-            test.fail()
-        else:
-            log.d('Parsed JSON keys:', list(resp_json.keys()))
+        # 5) Get GUI URL reachable from agent host
+        gui_url = gui_server.get_gui_url_for_host(agent_client.host)
+        log.i('GUI control URL (agent will call this):', gui_url)
 
-        # Poll for completion if async
-        if resp_json:
-            mode = resp_json.get('mode')
-            current_run_id = resp_json.get('run_id')
-            if mode != 'blocking':
-                log.i('Server returned mode', mode, '- entering polling loop')
-                import time
-                sleep_dt = agent.poll_interval if agent.poll_interval > 0 else 0.5
-                while time.time() - start < agent.timeout:
-                    b2, c2 = agent.poll_status()
-                    js2 = agent.json_load(b2)
-                    if js2 \
-                       and js2.get('run_id') == current_run_id \
-                       and js2.get('running') is False \
-                       and js2.get('final_answer') is not None:
-                        break
-                    time.sleep(sleep_dt)
-                b2, c2 = agent.get_result()
-                js_final = agent.json_load(b2)
-                if js_final and js_final.get('run_id') == current_run_id:
-                    resp_json = js_final
-
-        # Validate outcome
-        ok = resp_json.get('ok') if resp_json else None
-        passed = resp_json.get('pass') if resp_json else None
-        exit_code = resp_json.get('exit_code') if resp_json else None
-        final_answer = resp_json.get('final_answer') if resp_json else None
-        details = resp_json.get('details') if resp_json else None
-
-        log.i('Result ok=', ok, 'pass=', passed, 'exit_code=', exit_code)
-        log.i('Final answer:', final_answer)
-        log.i('Details:', details)
-
-        test.check(ok is True)
-        test.check(passed is True)
-        test.check(exit_code in (0, None))
-        if not (ok and passed and (exit_code in (0, None))):
-            test.fail()
+        # 6) Run agent task
+        task_description = 'RealSense Viewer is already opened, start stereo module and verify if Stereo Module depth stream looks healthy or not then return the stream health status as final answer'
+        agent_client.custom_task = agent_client.build_task_with_os(
+            task_description, 
+            gui_url, 
+            gui_server
+        )
+        
+        result_body, result_code = agent_client.start_run()
+        test.check(result_code in (HttpStatusCode.OK, HttpStatusCode.ACCEPTED))
+        
+        # 7) Parse and validate result
+        result_data = agent_client.validate_and_log_result(result_body, log.i)
+        
+        test.check(result_data['success'])
+        if not result_data['success']:
+            log.e(f"Agent task failed - ok: {result_data['ok']}, passed: {result_data['passed']}, exit_code: {result_data['exit_code']}")
 
     finally:
+        # Clean up all components
         viewer_mgr.cleanup()
+        gui_server.cleanup()
 
 test.print_results_and_exit()
