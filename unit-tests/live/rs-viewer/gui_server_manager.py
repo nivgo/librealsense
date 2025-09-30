@@ -8,6 +8,17 @@ import sys
 import requests
 from test_constants import TestDefaults
 
+def setup_ci_environment():
+    """Setup required environment variables for Jenkins/CI environment"""
+    # Set required environment variables for GUI operations and agent communication
+    os.environ['DISPLAY'] = TestDefaults.CI_DISPLAY
+    os.environ['NO_PROXY'] = TestDefaults.CI_NO_PROXY_HOST
+    os.environ['no_proxy'] = TestDefaults.CI_NO_PROXY_HOST
+    
+    print(f"[CI Setup] DISPLAY: {os.environ.get('DISPLAY', 'NOT_SET')}")
+    print(f"[CI Setup] NO_PROXY: {os.environ.get('NO_PROXY', 'NOT_SET')}")
+    print(f"[CI Setup] no_proxy: {os.environ.get('no_proxy', 'NOT_SET')}")
+
 class GuiServerManager:
     """Manages the GUI control server lifecycle for rs-viewer tests"""
     

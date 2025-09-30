@@ -10,12 +10,15 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from rspy import test, log, repo
 from agent_server_client import AgentServerClient
 from viewer_process_manager import ViewerProcessManager 
-from gui_server_manager import GuiServerManager
+from gui_server_manager import GuiServerManager, setup_ci_environment
 from test_constants import HttpStatusCode, TestTiming
 import time
 import platform
 
 with test.closure("Stereo depth health scenario via agent server"):
+    # Setup CI environment variables
+    setup_ci_environment()
+    
     # Check if realsense-viewer executable exists (like test-enumerate-devices)
     import platform
     import shutil

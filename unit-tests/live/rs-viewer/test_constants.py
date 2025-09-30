@@ -31,3 +31,7 @@ class TestDefaults:
     DEFAULT_TIMEOUT = 300.0
     POLL_INTERVAL = 2.0
     AGENT_BYPASS_PROXY = True  # Enable proxy bypass by default for agent server
+    
+    # CI/Jenkins environment configuration
+    CI_DISPLAY = ':0'  # X11 display for CI environments
+    CI_NO_PROXY_HOST = '143.185.122.14'  # Host to bypass proxy for the agent server
