@@ -1,4 +1,14 @@
-// License: Apache 2.0. See LICENSE file in root directory.
+// #include "dds-model.h"
+#include "device-model.h"
+#include "ux-window.h"
+#include <rsutils/json.h>
+#include <rsutils/json-config.h>
+#include <rsutils/os/special-folder.h>
+#include <rsutils/string/hexdump.h>
+
+#ifdef RS_DUMP_UI
+#include "../tools/realsense-viewer/ui_dump.h"
+#endif: Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2024 Intel Corporation. All Rights Reserved.
 
 #include "dds-model.h"
@@ -10,6 +20,7 @@
 #include <rsutils/string/hexdump.h>
 #include <imgui.h>
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 
 #include <iostream>
 #include <fstream>
@@ -209,7 +220,11 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
 
         // Connection Priority Section
         priority connection_priority = classifyPriority( _changed_config.link.priority );
-        if( ImGui::CollapsingHeader( "Connection Priority" ) )
+        bool connection_priority_open = ImGui::CollapsingHeader( "Connection Priority" );
+#ifdef RS_DUMP_UI
+        ui_dump_on_header("Connection Priority", connection_priority_open);
+#endif
+        if( connection_priority_open )
         {
             ImGui::Text( "Select connection priority:" );
             ImGui::RadioButton( "Ethernet First", reinterpret_cast< int * >( &connection_priority ), 0 );
@@ -247,7 +262,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
         // Network Configuration Section
         if( ImGui::CollapsingHeader( "Network Configuration" ) )
         {
-            ImGui::Checkbox( "Enable DHCP", &_changed_config.dhcp.on );
+            UI_Checkbox( "Enable DHCP", &_changed_config.dhcp.on );
             if( ! _changed_config.dhcp.on )
             {
                 ImGui::Text( "Static IP Address" );
@@ -285,9 +300,9 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
             else if( _changed_config.dds.domain_id > 232 )
                 _changed_config.dds.domain_id = 232;
         }
-        ImGui::Checkbox( "No Reset after changes", &_no_reset );
+        UI_Checkbox( "No Reset after changes", &_no_reset );
 
-        if( ImGui::Checkbox( "Load defult values", &_set_defult ) )
+        if( UI_Checkbox( "Load defult values", &_set_defult ) )
         {
             if( _set_defult )
                 _changed_config = _defult_config;
@@ -309,7 +324,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
 
         ImGui::SetCursorPosX( start_x );
 
-        if( ImGui::Button( "Cancel", ImVec2( button_width, 25 ) ) )
+        if( UI_Button( "Cancel", ImVec2( button_width, 25 ) ) )
         {
             close_window();
         }
@@ -319,7 +334,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
             RsImGui::CustomTooltip( "%s", "Close without saving any changes" );
         }
         ImGui::SameLine();
-        if( ImGui::Button( "Factory Reset", ImVec2( button_width, 25 ) ) )
+        if( UI_Button( "Factory Reset", ImVec2( button_width, 25 ) ) )
         {
             set_eth_config( _defult_config, error_message );
             close_window();
@@ -333,7 +348,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
         RsImGui::RsImButton(
             [&]()
             {
-                if( ImGui::ButtonEx( "Revert changes", ImVec2( button_width, 25 ) ) )
+                if( UI_ButtonEx( "Revert changes", ImVec2( button_width, 25 ) ) )
                 {
                     _changed_config = _current_config;
                 };
@@ -348,7 +363,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
         RsImGui::RsImButton(
             [&]()
             {
-                if( ImGui::ButtonEx( "Apply", ImVec2( button_width, 25 ) ) )
+                if( UI_ButtonEx( "Apply", ImVec2( button_width, 25 ) ) )
                 {
                     set_eth_config( _changed_config, error_message );
                     close_window();
@@ -364,7 +379,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
         {
             ImGui::Text( "No changes were made to the configuration." );
 
-            if( ImGui::Button( "OK", ImVec2( 100, 25 ) ) )
+            if( UI_Button( "OK", ImVec2( 100, 25 ) ) )
             {
                 ImGui::CloseCurrentPopup();
             }

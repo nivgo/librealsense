@@ -8,8 +8,13 @@
 #include "os.h"
 #include <stb_image.h>
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 #include "sw-update/http-downloader.h"
 #include <rsutils/easylogging/easyloggingpp.h>
+
+#ifdef RS_DUMP_UI
+#include "../tools/realsense-viewer/ui_dump.h"
+#endif
 
 using namespace rs2;
 using namespace sw_update;
@@ -134,7 +139,7 @@ void updates_model::draw(std::shared_ptr<notifications_model> not_model, ux_wind
                 ImGui::PushStyleColor(ImGuiCol_Text, light_red);
             }
 
-            ImGui::Checkbox("I understand and would like to proceed anyway without updating", &ignore);
+            UI_Checkbox("I understand and would like to proceed anyway without updating", &ignore);
 
             if (emphasize_dismiss_text)
             {
@@ -151,7 +156,7 @@ void updates_model::draw(std::shared_ptr<notifications_model> not_model, ux_wind
         {
             if (_fw_update_state != fw_update_states::started)
             {
-                if (ImGui::Button("Close", { 120, 20 }))
+                if (UI_Button("Close", { 120, 20 }))
                 {
                     {
                         std::lock_guard<std::mutex> lock(_lock);
@@ -168,7 +173,7 @@ void updates_model::draw(std::shared_ptr<notifications_model> not_model, ux_wind
             else
             {
                 ImGui::PushStyleColor(ImGuiCol_Button, sensor_bg);
-                ImGui::Button("Close", { 120, 20 });
+                UI_Button("Close", { 120, 20 });
                 ImGui::PopStyleColor();
             }
         }
@@ -177,7 +182,7 @@ void updates_model::draw(std::shared_ptr<notifications_model> not_model, ux_wind
             ImGui::PushStyleColor(ImGuiCol_Button, sensor_bg);
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, sensor_bg);
 
-            if (ImGui::Button("Close", { 120, 20 }))
+            if (UI_Button("Close", { 120, 20 }))
             {
                 emphasize_dismiss_text = true;
             }
@@ -351,6 +356,9 @@ bool updates_model::draw_software_section(const char * window_name, update_profi
                 ImGui::PushItemWidth(200);
                 ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 3);
                 ImGui::Combo(combo_id.c_str(), &selected_software_update_index, swu_labels.data(), static_cast<int>(swu_labels.size()));
+#ifdef RS_DUMP_UI
+                RS_LOG_LAST("combo", "Software Update Version");
+#endif
                 ImGui::PopItemWidth();
                 ImGui::PopStyleColor(2);
                 ImGui::SetWindowFontScale(1.);
@@ -428,7 +436,7 @@ bool updates_model::draw_software_section(const char * window_name, update_profi
             ImGui::PushStyleColor(ImGuiCol_BorderShadow, dark_grey);
             ImGui::PushStyleColor(ImGuiCol_Button, sensor_bg);
 
-            if (ImGui::Button("Download", { 120, 40 }))
+            if (UI_Button("Download", { 120, 40 }))
             {
                 try
                 {
@@ -627,6 +635,9 @@ bool updates_model::draw_firmware_section(std::shared_ptr<notifications_model> n
             ImGui::PushItemWidth(200);
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 3);
             ImGui::Combo(combo_id.c_str(), &selected_firmware_update_index, fwu_labels.data(), static_cast<int>(fwu_labels.size()));
+#ifdef RS_DUMP_UI
+            RS_LOG_LAST("combo", "Firmware Update Version");
+#endif
             ImGui::PopItemWidth();
             ImGui::PopStyleColor(2);
             ImGui::SetWindowFontScale(1.);
@@ -704,7 +715,7 @@ bool updates_model::draw_firmware_section(std::shared_ptr<notifications_model> n
         ImGui::PushStyleColor(ImGuiCol_Text, white);
         ImGui::PushStyleColor(ImGuiCol_Button, sensor_bg);
 
-        if (ImGui::Button("Download &\n   Install", ImVec2(120, 40)) || _retry)
+        if (UI_Button("Download &\n   Install", ImVec2(120, 40)) || _retry)
         {
             _retry = false;
             auto link = selected_firmware_update.download_link;
@@ -784,7 +795,7 @@ bool updates_model::draw_firmware_section(std::shared_ptr<notifications_model> n
         std::string text = _fw_update_state == fw_update_states::failed_downloading ?
             "Firmware download failed, check connection and press to retry" :
             "Firmware update process failed, press to retry";
-        if (ImGui::Button(text.c_str(), ImVec2(pos.w - 170 - left_padding, 25)))
+        if (UI_Button(text.c_str(), ImVec2(pos.w - 170 - left_padding, 25)))
         {
             _fw_update_state = fw_update_states::ready;
             _update_manager.reset();

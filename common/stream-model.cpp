@@ -7,6 +7,7 @@
 #include "os.h"
 #include <imgui_internal.h>
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 
 
 namespace rs2
@@ -483,7 +484,7 @@ namespace rs2
             {
                 ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue);
-                if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+                if (UI_Button(label.c_str(), { 24, top_bar_height }))
                 {
                     graph->clear();
                     show_graph = false;
@@ -496,7 +497,7 @@ namespace rs2
             }
             else
             {
-                if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+                if (UI_Button(label.c_str(), { 24, top_bar_height }))
                 {
                     show_graph = true;
                 }
@@ -513,7 +514,7 @@ namespace rs2
         {
             ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
             ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue);
-            if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+            if (UI_Button(label.c_str(), { 24, top_bar_height }))
             {
                 show_metadata = false;
             }
@@ -525,7 +526,7 @@ namespace rs2
         }
         else
         {
-            if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+            if (UI_Button(label.c_str(), { 24, top_bar_height }))
             {
                 show_metadata = true;
             }
@@ -543,7 +544,7 @@ namespace rs2
             {
                 ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue);
-                if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+                if (UI_Button(label.c_str(), { 24, top_bar_height }))
                 {
                     show_map_ruler = false;
                     config_file::instance().set(configurations::viewer::show_map_ruler, show_map_ruler);
@@ -556,7 +557,7 @@ namespace rs2
             }
             else
             {
-                if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+                if (UI_Button(label.c_str(), { 24, top_bar_height }))
                 {
                     show_map_ruler = true;
                     config_file::instance().set(configurations::viewer::show_map_ruler, show_map_ruler);
@@ -574,7 +575,7 @@ namespace rs2
             ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
             ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue);
             label = rsutils::string::from() << textual_icons::play << "##Resume " << profile.unique_id();
-            if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+            if (UI_Button(label.c_str(), { 24, top_bar_height }))
             {
                 if (p)
                 {
@@ -592,7 +593,7 @@ namespace rs2
         else
         {
             label = rsutils::string::from() << textual_icons::pause << "##Pause " << profile.unique_id();
-            if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+            if (UI_Button(label.c_str(), { 24, top_bar_height }))
             {
                 if (p)
                 {
@@ -609,7 +610,7 @@ namespace rs2
         ImGui::SameLine();
 
         label = rsutils::string::from() << textual_icons::camera << "##Snapshot " << profile.unique_id();
-        if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+        if (UI_Button(label.c_str(), { 24, top_bar_height }))
         {
             auto filename = file_dialog_open(save_file, "Portable Network Graphics (PNG)\0*.png\0", nullptr, nullptr);
 
@@ -630,7 +631,7 @@ namespace rs2
             ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
             ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue);
 
-            if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+            if (UI_Button(label.c_str(), { 24, top_bar_height }))
             {
                 show_stream_details = false;
                 config_file::instance().set(
@@ -646,7 +647,7 @@ namespace rs2
         }
         else
         {
-            if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+            if (UI_Button(label.c_str(), { 24, top_bar_height }))
             {
                 show_stream_details = true;
                 config_file::instance().set(
@@ -666,7 +667,7 @@ namespace rs2
             {
                 label = rsutils::string::from() << textual_icons::window_maximize << "##Maximize " << profile.unique_id();
 
-                if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+                if (UI_Button(label.c_str(), { 24, top_bar_height }))
                 {
                     viewer.fullscreen = true;
                     viewer.selected_stream = this;
@@ -685,7 +686,7 @@ namespace rs2
 
                 label = rsutils::string::from() << textual_icons::window_restore << "##Restore " << profile.unique_id();
 
-                if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+                if (UI_Button(label.c_str(), { 24, top_bar_height }))
                 {
                     viewer.fullscreen = false;
                 }
@@ -706,7 +707,7 @@ namespace rs2
         if (viewer.allow_stream_close)
         {
             label = rsutils::string::from() << textual_icons::times << "##Stop " << profile.unique_id();
-            if (ImGui::Button(label.c_str(), { 24, top_bar_height }))
+            if (UI_Button(label.c_str(), { 24, top_bar_height }))
             {
                 dev->stop(viewer.not_model);
             }

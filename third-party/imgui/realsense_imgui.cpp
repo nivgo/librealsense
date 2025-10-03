@@ -5,6 +5,9 @@
 #include "realsense_imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#ifdef RS_DUMP_UI
+#include "../../tools/realsense-viewer/ui_dump.h"
+#endif
 
 bool RsImGui::SliderIntWithSteps(const char* label, int* v, int v_min, int v_max, int v_step)
 {
@@ -30,7 +33,10 @@ bool RsImGui::SliderIntWithSteps(const char* label, int* v, int v_min, int v_max
         // ensure the value is between min and max
         *v = ImClamp(*v, v_min, v_max);
     }
-
+#ifdef RS_DUMP_UI
+    // Log last slider (even if unchanged) so it appears in dump once per frame
+    RS_LOG_LAST("slider", label);
+#endif
     return changed && (*v != originalValue);
 }
 
@@ -54,12 +60,12 @@ float RsImGui::RoundScalar(float value, int decimal_precision)
 bool RsImGui::CustomComboBox(const char* label, int* current_item, const char* const items[], int items_count)
 {
     bool value_changed = false;
-
-    // the preview value - selected item
     const char* preview_value = (*current_item >= 0 && *current_item < items_count) ? items[*current_item] : "Select an item";
     if (ImGui::BeginCombo(label, ""))
     {
-        //insert combobox items
+#ifdef RS_DUMP_UI
+        ui_dump_combo_begin(label, preview_value);
+#endif
         for (int i = 0; i < items_count; i++)
         {
             const bool is_selected = (i == *current_item);
@@ -68,10 +74,20 @@ bool RsImGui::CustomComboBox(const char* label, int* current_item, const char* c
                 *current_item = i;
                 value_changed = true;
             }
+#ifdef RS_DUMP_UI
+            ui_dump_combo_option(items[i], is_selected);
+#endif
             if (is_selected)
                 ImGui::SetItemDefaultFocus();
         }
+#ifdef RS_DUMP_UI
+        ui_dump_combo_end();
+#endif
         ImGui::EndCombo();
+    } else {
+#ifdef RS_DUMP_UI
+        RS_LOG_LAST("combo", label);
+#endif
     }
 
     // Center the text in the combo box when closed
@@ -320,7 +336,9 @@ bool RsImGui::VSliderFloat(const char* label, const ImVec2& size, float* v, floa
 
     // Actual slider behavior + render grab
     bool value_changed = RsImGui::SliderBehavior(frame_bb, id, v, v_min, v_max, power, decimal_precision, ImGuiSliderFlags_Vertical, render_bg);
-
+#ifdef RS_DUMP_UI
+    RS_LOG_LAST("vslider", label);
+#endif
     // Display value using user-provided display format so user can add prefix/suffix/decorations to the value.
     // For the vertical slider we allow centered text to overlap the frame padding
     char value_buf[64];
@@ -338,6 +356,9 @@ bool RsImGui::SliderIntTofloat(const char* label, int* v, int v_min, int v_max, 
         display_format = "%.0f";
     float v_f = (float)*v;
     bool value_changed = ImGui::SliderFloat(label, &v_f, (float)v_min, (float)v_max, display_format, ImGuiSliderFlags_None);
+#ifdef RS_DUMP_UI
+    RS_LOG_LAST("slider", label);
+#endif
     *v = (int)v_f;
     return value_changed;
 }

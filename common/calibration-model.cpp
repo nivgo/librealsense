@@ -7,6 +7,12 @@
 #include "os.h"
 #include "ux-window.h"
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
+
+#ifdef RS_DUMP_UI
+#include "../tools/realsense-viewer/ui_dump.h"
+#include "../tools/realsense-viewer/rs_imgui.h"
+#endif
 
 #include "../src/ds/d400/d400-private.h"
 
@@ -32,7 +38,13 @@ void calibration_model::draw_float(std::string name, float& x, const float& orig
     if( std::abs( x - orig ) > 0.00001 )
         ImGui::PushStyleColor( ImGuiCol_FrameBg, regular_blue );
     else ImGui::PushStyleColor(ImGuiCol_FrameBg, black);
+    
+#ifdef RS_DUMP_UI
+    // Use RS_DragFloat for UI instrumentation instead of ImGui::DragFloat
+    if (RS_DragFloat(std::string( rsutils::string::from() << "##" << name).c_str(), &x, 0.001f))
+#else
     if (ImGui::DragFloat(std::string( rsutils::string::from() << "##" << name).c_str(), &x, 0.001f))
+#endif
     {
         changed = true;
     }
@@ -128,7 +140,7 @@ void calibration_model::update(ux_window& window, std::string& error_message)
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
 
         ImGui::SetCursorPosX(w / 2 - 260 / 2);
-        if (ImGui::Button(u8"\uF07C Load...", ImVec2(70, 30)))
+        if (UI_Button(u8"\uF07C Load...", ImVec2(70, 30)))
         {
             try
             {
@@ -180,7 +192,7 @@ void calibration_model::update(ux_window& window, std::string& error_message)
             RsImGui::CustomTooltip("%s", "Load calibration from file");
         }
         ImGui::SameLine();
-        if (ImGui::Button(u8"\uF0C7 Save As...", ImVec2(100, 30)))
+        if (UI_Button(u8"\uF0C7 Save As...", ImVec2(100, 30)))
         {
             try
             {
@@ -238,7 +250,7 @@ void calibration_model::update(ux_window& window, std::string& error_message)
         ImGui::SameLine();
         if (_accept)
         {
-            if (ImGui::Button(u8"\uF275 Restore Factory", ImVec2(115, 30)))
+            if (UI_Button(u8"\uF275 Restore Factory", ImVec2(115, 30)))
             {
                 try
                 {
@@ -272,7 +284,7 @@ void calibration_model::update(ux_window& window, std::string& error_message)
             ImGui::PushStyleColor(ImGuiCol_Text, grey);
             ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, grey);
 
-            ImGui::Button(u8"\uF275 Restore Factory", ImVec2(115, 30));
+            UI_Button(u8"\uF275 Restore Factory", ImVec2(115, 30));
             if (ImGui::IsItemHovered())
             {
                 RsImGui::CustomTooltip("%s", "Write selected calibration table to the device. For advanced users");
@@ -327,6 +339,9 @@ void calibration_model::update(ux_window& window, std::string& error_message)
 
         ImGui::PushItemWidth(120);
         ImGui::Combo("##RectifiedResolutions", &selected_resolution, resolution_names_char.data(), int(resolution_names_char.size()));
+#ifdef RS_DUMP_UI
+        RS_LOG_LAST("combo", "Rectified Resolutions");
+#endif
 
         ImGui::SetCursorPosX(10);
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
@@ -356,7 +371,7 @@ void calibration_model::update(ux_window& window, std::string& error_message)
         ImGui::PopStyleColor();
 
         ImGui::SetCursorScreenPos({ (float)(x0 + 10), (float)(y0 + h - 30) });
-        if (ImGui::Checkbox("I know what I'm doing", &_accept))
+        if (UI_Checkbox("I know what I'm doing", &_accept))
         {
             config_file::instance().set(configurations::calibration::enable_writing, _accept);
         }
@@ -367,7 +382,7 @@ void calibration_model::update(ux_window& window, std::string& error_message)
 
         ImGui::SetCursorScreenPos({ (float)(x0 + w - 230), (float)(y0 + h - 30) });
 
-        if (ImGui::Button("Cancel", ImVec2(100, 25)))
+        if (UI_Button("Cancel", ImVec2(100, 25)))
         {
             ImGui::CloseCurrentPopup();
         }
@@ -381,7 +396,7 @@ void calibration_model::update(ux_window& window, std::string& error_message)
         auto streams = dev.query_sensors()[0].get_active_streams();
         if (_accept && streams.size())
         {
-            if (ImGui::Button(u8"\uF2DB  Write Table", ImVec2(120, 25)))
+            if (UI_Button(u8"\uF2DB  Write Table", ImVec2(120, 25)))
             {
                 try
                 {
@@ -412,7 +427,7 @@ void calibration_model::update(ux_window& window, std::string& error_message)
             ImGui::PushStyleColor(ImGuiCol_Text, grey);
             ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, grey);
 
-            ImGui::Button(u8"\uF2DB  Write Table", ImVec2(120, 25));
+            UI_Button(u8"\uF2DB  Write Table", ImVec2(120, 25));
             if (ImGui::IsItemHovered())
             {
                 RsImGui::CustomTooltip("%s", "Write selected calibration table to the device. For advanced users");

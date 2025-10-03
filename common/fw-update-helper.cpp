@@ -6,6 +6,7 @@
 #include "viewer.h"
 #include <realsense_imgui.h>
 #include "ux-window.h"
+#include "ui_instrumentation.h"
 
 #include <rsutils/os/special-folder.h>
 #include "os.h"
@@ -474,7 +475,7 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, saturate(sensor_header_light_blue, 1.5f));
                 std::string button_name = rsutils::string::from() << "Install" << "##fwupdate" << index;
 
-                if (ImGui::Button(button_name.c_str(), { float(bar_width), 20.f }) || update_manager->started())
+                if (UI_Button(button_name.c_str(), { float(bar_width), 20.f }) || update_manager->started())
                 {
                     // stopping stream before starting fw update
                     auto fw_update_manager = dynamic_cast<firmware_update_manager*>(update_manager.get());
@@ -542,7 +543,7 @@ namespace rs2
 
                     string id = rsutils::string::from() << "Expand" << "##" << index;
                     ImGui::PushStyleColor(ImGuiCol_Text, light_grey);
-                    if (ImGui::Button(id.c_str(), { 100, 20 }))
+                    if (UI_Button(id.c_str(), { 100, 20 }))
                     {
                         expanded = true;
                     }
@@ -555,7 +556,7 @@ namespace rs2
         {
             std::string button_name = rsutils::string::from() << "Learn More..." << "##" << index;
 
-            if (ImGui::Button(button_name.c_str(), { float(bar_width), 20 }))
+            if (UI_Button(button_name.c_str(), { float(bar_width), 20 }))
             {
                 open_url(recommended_fw_url);
             }
@@ -608,7 +609,7 @@ namespace rs2
             ImGui::SetCursorPosX(190);
             if (visible || update_manager->done() || update_manager->failed())
             {
-                if (ImGui::Button("OK", ImVec2(120, 0)))
+                if (UI_Button("OK", ImVec2(120, 0)))
                 {
                     if (update_manager->done() || update_manager->failed())
                     {
@@ -627,7 +628,7 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, transparent);
                 ImGui::PushStyleColor(ImGuiCol_Text, transparent);
                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, transparent);
-                ImGui::Button("OK", ImVec2(120, 0));
+                UI_Button("OK", ImVec2(120, 0));
                 ImGui::PopStyleColor(5);
             }
 

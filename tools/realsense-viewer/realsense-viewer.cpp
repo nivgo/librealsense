@@ -22,6 +22,21 @@
 
 #include <imgui_internal.h>
 
+#include "rs_imgui.h"
+
+#ifdef RS_API
+extern void ui_actions_start(unsigned short port);
+extern void ui_actions_stop();
+#endif
+
+#ifdef RS_DUMP_UI
+extern void ui_dump_begin_frame(int frame_index);
+extern void ui_dump_end_frame_and_write(const char* outdir, bool with_screenshot);
+extern void ui_dump_print_coverage_summary();
+extern void ui_dump_self_check_validation();
+extern void ui_dump_comprehensive_validation();
+#endif
+
 #ifdef INTERNAL_FW
 #include "common/fw/D4XX_FW_Image.h"
 #else
@@ -316,6 +331,10 @@ int main(int argc, const char** argv) try
 
     update_viewer_configuration(viewer_model);
 
+#ifdef RS_API
+    ui_actions_start(8787);
+#endif
+
     std::vector<device> connected_devs;
     std::mutex m;
 
@@ -369,9 +388,17 @@ int main(int argc, const char** argv) try
         return true;
     };
 
+#ifdef RS_API
+    ui_actions_start(8787);
+#endif
+
     // Closing the window
     while (window)
     {
+#ifdef RS_DUMP_UI
+        static int frame_counter = 0;
+        ui_dump_begin_frame(frame_counter++);
+#endif
         auto device_changed = refresh_devices(m, ctx, devices_connection_changes, connected_devs,
             device_names, *device_models, viewer_model, error_message);
 
@@ -391,7 +418,7 @@ int main(int argc, const char** argv) try
         ImGui::SetNextWindowSize({ viewer_model.panel_width, viewer_model.panel_y });
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGui::Begin("Add Device Panel", nullptr, flags);
+        RS_Begin("Add Device Panel", nullptr, flags);
 
         ImGui::PushFont(window.get_large_font());
         ImGui::PushStyleColor(ImGuiCol_PopupBg, from_rgba(230, 230, 230, 255));
@@ -405,7 +432,7 @@ int main(int argc, const char** argv) try
                                           << "  Add Source (" << (device_names.size() - device_models->size()) 
                                           << " available)\t\t\t\t\t\t\t\t\t\t\t";
 
-        if (ImGui::Button(add_source_button_text.c_str(), { viewer_model.panel_width - 1, viewer_model.panel_y }))
+        if (RS_Button(add_source_button_text.c_str(), { viewer_model.panel_width - 1, viewer_model.panel_y }))
             ImGui::OpenPopup("select");
 
         auto new_devices_count = device_names.size() + 1;
@@ -449,7 +476,7 @@ int main(int argc, const char** argv) try
         ImVec2 popup_select_size = { viewer_model.panel_width, popup_select_h };
         ImGui::SetNextWindowSize( popup_select_size );
 
-        if (ImGui::BeginPopup("select"))
+        if (RS_BeginPopup("select"))
         {
             ImGui::PushStyleColor(ImGuiCol_Text, dark_grey);
             ImGui::Columns(1, "DevicesList", false);
@@ -473,7 +500,7 @@ int main(int argc, const char** argv) try
                                                            << ") S/N " << device_names[i].second.c_str();
 
                 ImGui::PushID(static_cast<int>(i));
-                if (ImGui::Selectable(line.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)/* || switch_to_newly_loaded_device*/)
+                if (RS_Selectable(line.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)/* || switch_to_newly_loaded_device*/)
                 {
                     try
                     {
@@ -493,7 +520,7 @@ int main(int argc, const char** argv) try
 
             if (new_devices_count > 1) ImGui::Separator();
 
-            if (ImGui::Selectable("Load Recorded Sequence", false, ImGuiSelectableFlags_SpanAllColumns))
+            if (RS_Selectable("Load Recorded Sequence", false, ImGuiSelectableFlags_SpanAllColumns))
             {
                 if (auto ret = file_dialog_open(open_file, "ROS-bag\0*.bag\0", NULL, NULL))
                 {
@@ -503,7 +530,7 @@ int main(int argc, const char** argv) try
             ImGui::NextColumn();
 
             ImGui::PopStyleColor();
-            ImGui::EndPopup();
+            RS_EndPopup();
             }
         ImGui::PopFont();
         ImGui::PopStyleVar();
@@ -512,7 +539,7 @@ int main(int argc, const char** argv) try
         ImGui::PopStyleColor();
         ImGui::PopFont();
 
-        ImGui::End();
+        RS_End();
         ImGui::PopStyleVar();
 
 
@@ -533,7 +560,7 @@ int main(int argc, const char** argv) try
         // *********************
         // Creating window menus
         // *********************
-        ImGui::Begin("Control Panel", nullptr, flags | ImGuiWindowFlags_AlwaysVerticalScrollbar);
+        RS_Begin("Control Panel", nullptr, flags | ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
         if (device_models->size() > 0)
         {
@@ -612,12 +639,33 @@ int main(int argc, const char** argv) try
             viewer_model.show_no_device_overlay(window.get_large_font(), 50, static_cast<int>(viewer_model.panel_y + 50));
         }
 
-        ImGui::End();
+        RS_End();
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();
 
+
+
         // Fetch and process frames from queue
         viewer_model.handle_ready_frames(viewer_rect, window, static_cast<int>(device_models->size()), error_message);
+        
+#ifdef RS_DUMP_UI
+        // Check for F9 key to trigger coverage validation
+        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_F9))) {
+            ui_dump_print_coverage_summary();
+        }
+        
+        // Check for F10 key to trigger comprehensive self-check validation
+        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_F10))) {
+            ui_dump_self_check_validation();
+        }
+        
+        // Check for F11 key to trigger comprehensive validation
+        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_F11))) {
+            ui_dump_comprehensive_validation();
+        }
+        
+        ui_dump_end_frame_and_write("/tmp/rs-viewer-ui", true);
+#endif
         }
 
     // Stopping post processing filter rendering thread
@@ -630,6 +678,10 @@ int main(int argc, const char** argv) try
             if (sub->streaming)
                 sub->stop(viewer_model.not_model);
         }
+
+#ifdef RS_API
+    ui_actions_stop();
+#endif
 
     return EXIT_SUCCESS;
 }

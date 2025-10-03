@@ -5,9 +5,15 @@
 #include "post-processing-block-model.h"
 #include <imgui_internal.h>
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 
 #include "metadata-helper.h"
 #include "subdevice-model.h"
+
+#ifdef RS_DUMP_UI
+#include "../tools/realsense-viewer/ui_dump.h"
+#include "../tools/realsense-viewer/rs_imgui.h"
+#endif
 
 namespace rs2
 {
@@ -502,6 +508,9 @@ namespace rs2
                     ui.selected_res_id = tmp_selected_res_id;
 
                 }
+#ifdef RS_DUMP_UI
+                RS_LOG_LAST("combo", "Resolution");
+#endif
                 ImGui::PopStyleColor();
                 ImGui::PopItemWidth();
             }
@@ -538,6 +547,9 @@ namespace rs2
                 {
                     res = true;
                 }
+#ifdef RS_DUMP_UI
+                RS_LOG_LAST("combo", "FPS");
+#endif
                 ImGui::PopStyleColor();
                 ImGui::PopItemWidth();
             }
@@ -577,7 +589,7 @@ namespace rs2
                 {
                     auto tmp = stream_enabled;
                     label = rsutils::string::from() << stream_display_names[f.first] << "##" << f.first;
-                    if (ImGui::Checkbox(label.c_str(), &stream_enabled[f.first]))
+                    if (UI_Checkbox(label.c_str(), &stream_enabled[f.first]))
                     {
                         prev_stream_enabled = tmp;
                     }
@@ -614,6 +626,10 @@ namespace rs2
                     ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, { 1,1,1,1 });
                     RsImGui::CustomComboBox(label.c_str(), &ui.selected_format_id[f.first], formats_chars.data(),
                         static_cast<int>(formats_chars.size()));
+#ifdef RS_DUMP_UI
+                    std::string format_label = rsutils::string::from() << stream_display_names[f.first] << " Format";
+                    RS_LOG_LAST("combo", format_label.c_str());
+#endif
                     ImGui::PopStyleColor();
                     ImGui::PopItemWidth();
                 }
@@ -641,6 +657,10 @@ namespace rs2
                         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, { 1,1,1,1 });
                         RsImGui::CustomComboBox(label.c_str(), &ui.selected_fps_id[f.first], fps_chars.data(),
                             static_cast<int>(fps_chars.size()));
+#ifdef RS_DUMP_UI
+                        std::string fps_label = rsutils::string::from() << stream_display_names[f.first] << " FPS";
+                        RS_LOG_LAST("combo", fps_label.c_str());
+#endif
                         ImGui::PopStyleColor();
                         ImGui::PopItemWidth();
                     }
@@ -702,6 +722,10 @@ namespace rs2
                         _options_invalidated = true;
                         
                         ui.selected_res_id_map[stream_type_id] = tmp_selected_res_id;
+#ifdef RS_DUMP_UI
+                        std::string res_label = rsutils::string::from() << rs2_stream_to_string(stream_type) << " Resolution";
+                        RS_LOG_LAST("combo", res_label.c_str());
+#endif
 
                     }
                     ImGui::PopStyleColor();
@@ -754,10 +778,13 @@ namespace rs2
                     res = true;
                     auto tmp = stream_enabled;
                     label = rsutils::string::from() << stream_display_names[f.first] << "##" << f.first;
-                    if (ImGui::Checkbox(label.c_str(), &stream_enabled[f.first]))
+                    if (UI_Checkbox(label.c_str(), &stream_enabled[f.first]))
                     {
                         prev_stream_enabled = tmp;
                     }
+#ifdef RS_DUMP_UI
+                    RS_LOG_LAST("checkbox", stream_display_names[f.first].c_str());
+#endif
                 }
             }
 
@@ -791,6 +818,10 @@ namespace rs2
                     ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, { 1,1,1,1 });
                     RsImGui::CustomComboBox(label.c_str(), &ui.selected_format_id[f.first], formats_chars.data(),
                         static_cast<int>(formats_chars.size()));
+#ifdef RS_DUMP_UI
+                    std::string mult_format_label = rsutils::string::from() << stream_display_names[f.first] << " Multi Format";
+                    RS_LOG_LAST("combo", mult_format_label.c_str());
+#endif
                     ImGui::PopStyleColor();
                     ImGui::PopItemWidth();
                 }

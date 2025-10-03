@@ -32,6 +32,18 @@
 
 #include <iostream>
 
+// Forward declarations for ui_dump and ui_actions functionality
+#ifdef RS_DUMP_UI
+extern void ui_dump_begin_frame(int frame_index);
+extern void ui_dump_end_frame_and_write(const char* outdir, bool with_screenshot);
+extern void ui_dump_on_begin_window(const char* title, unsigned int id, bool scrollable);
+extern void ui_dump_on_end_window();
+#endif
+
+#ifdef RS_API
+extern void ui_actions_frame_tick();
+#endif
+
 void glfw_error_callback(int error, const char* description)
 {
     std::cerr << "GLFW Driver Error: " << description << "\n";
@@ -474,6 +486,11 @@ namespace rs2
     void ux_window::imgui_config_pop()
     {
         ImGui::PopFont();
+
+#ifdef RS_DUMP_UI
+        ui_dump_on_end_window();
+#endif
+
         ImGui::End();
 
         ImGui::PopStyleColor(3);
@@ -546,6 +563,11 @@ namespace rs2
 
         ImGui::SetNextWindowSize({ (float)_width, (float)_height });
         ImGui::Begin("Splash Screen Banner", nullptr, flags);
+
+#ifdef RS_DUMP_UI
+        ui_dump_on_begin_window("Splash Screen Banner", ImGui::GetCurrentWindow()->ID, true);
+#endif
+
         ImGui::PushFont(_font_18);
 
         ImGui::Text("%s   Loading %s...", hourglass.c_str(), _title_str.c_str());
@@ -768,6 +790,11 @@ namespace rs2
         _mouse.ui_wheel = 0.f;
         
         RsImGui::PushNewFrame();
+
+#ifdef RS_DUMP_UI
+        static int g_frame_idx = 0;
+        ui_dump_begin_frame(g_frame_idx++);
+#endif
     }
 
     void ux_window::begin_viewport()
@@ -789,7 +816,18 @@ namespace rs2
         if (!_first_frame)
         {
             ImGui::Render();
+
+#ifdef RS_API
+            ui_actions_frame_tick();              // apply queued actions from API
+#endif
+
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            
+#ifdef RS_DUMP_UI
+            // Take screenshot after ImGui has been rendered but before buffer swap
+            ui_dump_end_frame_and_write("/tmp/rs-viewer-ui", /*with_screenshot=*/true);
+#endif
+
             glfwSwapBuffers(_win);
             _mouse.mouse_wheel = 0;
         }

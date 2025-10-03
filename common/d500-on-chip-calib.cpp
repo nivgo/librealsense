@@ -253,7 +253,7 @@ namespace rs2
         std::string calibrate_button_name = rsutils::string::from() << activation_cal_str << "##self" << index;
 
         ImGui::SetCursorScreenPos({ float(x + 5), float(y + height - 28) });
-        if (ImGui::Button(calibrate_button_name.c_str(), { float(bar_width), 20.f }))
+        if (UI_Button(calibrate_button_name.c_str(), { float(bar_width), 20.f }))
         {
             get_manager().reset();
             if (update_state == RS2_CALIB_STATE_INIT_DRY_RUN)
@@ -282,7 +282,7 @@ namespace rs2
         ImGui::SetNextWindowPos({ float(x + width - 125), float(y + height - 25) });
         ImGui::SetNextWindowSize({ 120, 70 });
 
-        if (ImGui::Button(id.c_str(), { 100, 20 }))
+        if (UI_Button(id.c_str(), { 100, 20 }))
         {
             update_state = RS2_CALIB_STATE_ABORT;
         }

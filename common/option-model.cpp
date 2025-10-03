@@ -3,11 +3,16 @@
 
 #include "option-model.h"
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 #include <librealsense2/rs_advanced_mode.hpp>
 #include <imgui.h>
 #include <imgui_internal.h>
 #include "device-model.h"
 #include "subdevice-model.h"
+
+#ifdef RS_DUMP_UI
+#include "../tools/realsense-viewer/ui_dump.h"
+#endif
 
 namespace rs2
 {
@@ -110,7 +115,11 @@ bool option_model::draw( std::string & error_message,
             if( ! dev->roi_checked )
             {
                 std::string caption = rsutils::string::from() << "Set ROI##" << button_label;
-                if( ImGui::Button( caption.c_str(), { 55, 0 } ) )
+#ifdef RS_DUMP_UI
+                std::string log_msg = rsutils::string::from() << "ROI_SET_BUTTON_ID:" << caption << "_LABEL:Set ROI_TYPE:button";
+                RS_LOG_LAST("button", log_msg.c_str());
+#endif
+                if( UI_Button( caption.c_str(), { 55, 0 } ) )
                 {
                     dev->roi_checked = true;
                 }
@@ -118,7 +127,11 @@ bool option_model::draw( std::string & error_message,
             else
             {
                 std::string caption = rsutils::string::from() << "Cancel##" << button_label;
-                if( ImGui::Button( caption.c_str(), { 55, 0 } ) )
+#ifdef RS_DUMP_UI
+                std::string log_msg = rsutils::string::from() << "ROI_CANCEL_BUTTON_ID:" << caption << "_LABEL:Cancel ROI_TYPE:button";
+                RS_LOG_LAST("button", log_msg.c_str());
+#endif
+                if( UI_Button( caption.c_str(), { 55, 0 } ) )
                 {
                     dev->roi_checked = false;
                 }
@@ -275,6 +288,9 @@ bool option_model::draw_combobox( notifications_model & model,
                 *invalidate_flag = true;
             item_clicked = true;
         }
+#ifdef RS_DUMP_UI
+        RS_LOG_LAST("combo", endpoint->get_option_name(opt));
+#endif
     }
     catch( const error & e )
     {
@@ -357,7 +373,7 @@ bool option_model::draw_slider( notifications_model & model,
     ImGui::PushStyleColor( ImGuiCol_ButtonActive, { 1.f, 1.f, 1.f, 0.f } );
     ImGui::PushStyleColor( ImGuiCol_ButtonHovered, { 1.f, 1.f, 1.f, 0.f } );
     ImGui::PushStyleColor( ImGuiCol_Button, { 1.f, 1.f, 1.f, 0.f } );
-    ImGui::Button( textual_icons::question_mark, { 20, 20 } );
+    UI_Button( textual_icons::question_mark, { 20, 20 } );
     ImGui::PopStyleColor( 5 );
     if( ImGui::IsItemHovered() && description )
     {
@@ -375,7 +391,11 @@ bool option_model::draw_slider( notifications_model & model,
             ImGui::PushStyleColor( ImGuiCol_TextSelectedBg, light_grey );
             ImGui::PushStyleColor( ImGuiCol_ButtonHovered, { 1.f, 1.f, 1.f, 0.f } );
             ImGui::PushStyleColor( ImGuiCol_Button, { 1.f, 1.f, 1.f, 0.f } );
-            if( ImGui::Button( edit_id.c_str(), { 20, 20 } ) )
+#ifdef RS_DUMP_UI
+            std::string log_msg = rsutils::string::from() << "OPTION_EDIT_BUTTON_ID:" << edit_id << "_LABEL:Edit Option_TYPE:button_OPTION:" << endpoint->get_option_name(opt);
+            RS_LOG_LAST("button", log_msg.c_str());
+#endif
+            if( UI_Button( edit_id.c_str(), { 20, 20 } ) )
             {
                 edit_value = value_as_string();
                 edit_mode = true;
@@ -393,7 +413,11 @@ bool option_model::draw_slider( notifications_model & model,
             ImGui::PushStyleColor( ImGuiCol_TextSelectedBg, light_blue );
             ImGui::PushStyleColor( ImGuiCol_ButtonHovered, { 1.f, 1.f, 1.f, 0.f } );
             ImGui::PushStyleColor( ImGuiCol_Button, { 1.f, 1.f, 1.f, 0.f } );
-            if( ImGui::Button( edit_id.c_str(), { 20, 20 } ) )
+#ifdef RS_DUMP_UI
+            std::string log_msg = rsutils::string::from() << "OPTION_EDIT_CONFIRM_BUTTON_ID:" << edit_id << "_LABEL:Confirm Edit_TYPE:button_OPTION:" << endpoint->get_option_name(opt);
+            RS_LOG_LAST("button", log_msg.c_str());
+#endif
+            if( UI_Button( edit_id.c_str(), { 20, 20 } ) )
             {
                 edit_mode = false;
             }
@@ -529,6 +553,9 @@ bool option_model::draw_slider( notifications_model & model,
                                                     error_message,
                                                     model );
             }
+#ifdef RS_DUMP_UI
+            RS_LOG_LAST("slider", endpoint->get_option_name(opt));
+#endif
         }
         else
         {
@@ -587,6 +614,9 @@ bool option_model::draw_slider( notifications_model & model,
             {
                 slider_clicked = slider_unselected( opt, tmp_value, error_message, model );
             }
+#ifdef RS_DUMP_UI
+            RS_LOG_LAST("slider", endpoint->get_option_name(opt));
+#endif
         }
     }
     catch( const error & e )
@@ -611,7 +641,7 @@ bool option_model::draw_checkbox( notifications_model & model,
 
     bool bool_value = value_as_float() > 0.f;
 
-    if( ImGui::Checkbox( label.c_str(), &bool_value ) )
+    if( UI_Checkbox( label.c_str(), &bool_value ) )
     {
         checkbox_was_clicked = true;
         model.add_log( rsutils::string::from() << "Setting " << opt << " to " << ( bool_value ? "1.0" : "0.0" ) << " ("
@@ -621,6 +651,9 @@ bool option_model::draw_checkbox( notifications_model & model,
         if (invalidate_flag)
             *invalidate_flag = true;
     }
+#ifdef RS_DUMP_UI
+    RS_LOG_LAST("checkbox", endpoint->get_option_name(opt));
+#endif
     if( ImGui::IsItemHovered() && description )
     {
         RsImGui::CustomTooltip( "%s", description );

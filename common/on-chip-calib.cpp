@@ -4,6 +4,10 @@
 #include <glad/glad.h>
 #include "on-chip-calib.h"
 
+#ifdef RS_DUMP_UI
+#include "../tools/realsense-viewer/ui_dump.h"
+#endif
+
 #include <map>
 #include <vector>
 #include <string>
@@ -11,6 +15,7 @@
 #include <condition_variable>
 #include <model-views.h>
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 #include <viewer.h>
 #include "calibration-model.h"
 #include "os.h"
@@ -1679,7 +1684,7 @@ namespace rs2
         ImGui::SetCursorScreenPos({ float(x + 9), float(y + 35 + ImGui::GetTextLineHeightWithSpacing()) });
 
         std::string id = rsutils::string::from() << "##Intrinsic_" << index;
-        if (ImGui::Checkbox("Intrinsic", &intrinsic))
+        if (UI_Checkbox("Intrinsic", &intrinsic))
         {
             extrinsic = !intrinsic;
         }
@@ -1691,7 +1696,7 @@ namespace rs2
 
         id = rsutils::string::from() << "##Intrinsic_" << index;
 
-        if (ImGui::Checkbox("Extrinsic", &extrinsic))
+        if (UI_Checkbox("Extrinsic", &extrinsic))
         {
             intrinsic = !extrinsic;
         }
@@ -1801,7 +1806,7 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_Button, saturate(sensor_header_light_blue, sat));
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, saturate(sensor_header_light_blue, 1.5f));
                 ImGui::SetCursorScreenPos({ float(x + 9), float(y + height - 55) });
-                ImGui::Checkbox("Px/Py only", &get_manager().py_px_only);
+                UI_Checkbox("Px/Py only", &get_manager().py_px_only);
                 if (ImGui::IsItemHovered())
                 {
                     RsImGui::CustomTooltip("%s", "Calibrate: {Fx/Fy/Px/Py}/{Px/Py}");
@@ -1809,7 +1814,7 @@ namespace rs2
 
                 ImGui::SetCursorScreenPos({ float(x + 9), float(y + height - 25) });
                 std::string button_name = rsutils::string::from() << "Calibrate" << "##uvmapping" << index;
-                if (ImGui::Button(button_name.c_str(), { float(bar_width - 60), 20.f }))
+                if (UI_Button(button_name.c_str(), { float(bar_width - 60), 20.f }))
                 {
                     get_manager().restore_workspace([this](std::function<void()> a) { a(); });
                     get_manager().reset();
@@ -1830,7 +1835,7 @@ namespace rs2
 
                 string id = rsutils::string::from() << "Py Px Calibration only##py_px_only" << index;
                 ImGui::SetCursorScreenPos({ float(x + 15), float(y + height - ImGui::GetTextLineHeightWithSpacing() - 32) });
-                ImGui::Checkbox(id.c_str(), &get_manager().py_px_only);
+                UI_Checkbox(id.c_str(), &get_manager().py_px_only);
             }
             else if (update_state == RS2_CALIB_STATE_GET_TARE_GROUND_TRUTH)
             {
@@ -1890,7 +1895,7 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, saturate(sensor_header_light_blue, 1.5f));
 
                 std::string back_button_name = rsutils::string::from() << "Back" << "##tare" << index;
-                if (ImGui::Button(back_button_name.c_str(), { float(60), 20.f }))
+                if (UI_Button(back_button_name.c_str(), { float(60), 20.f }))
                 {
                     get_manager().action = on_chip_calib_manager::RS2_CALIB_ACTION_TARE_CALIB;
                     update_state = update_state_prev;
@@ -1899,7 +1904,7 @@ namespace rs2
 
                 ImGui::SetCursorScreenPos({ float(x + 85), float(y + height - 25) });
                 std::string button_name = rsutils::string::from() << "Calculate" << "##tare" << index;
-                if (ImGui::Button(button_name.c_str(), { float(bar_width - 70), 20.f }))
+                if (UI_Button(button_name.c_str(), { float(bar_width - 70), 20.f }))
                 {
                     get_manager().restore_workspace([this](std::function<void()> a) { a(); });
                     get_manager().reset();
@@ -1943,7 +1948,7 @@ namespace rs2
                 std::string button_name = rsutils::string::from() << "Retry" << "##retry" << index;
 
                 ImGui::SetCursorScreenPos({ float(x + 5), float(y + height - 25) });
-                if (ImGui::Button(button_name.c_str(), { float(bar_width), 20.f }))
+                if (UI_Button(button_name.c_str(), { float(bar_width), 20.f }))
                 {
                     get_manager().restore_workspace([this](std::function<void()> a) { a(); });
                     get_manager().reset();
@@ -1968,7 +1973,7 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_Text, update_state != RS2_CALIB_STATE_TARE_INPUT_ADVANCED ? light_grey : light_blue);
                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, update_state != RS2_CALIB_STATE_TARE_INPUT_ADVANCED ? light_grey : light_blue);
 
-                if (ImGui::Button(u8"\uf0d7"))
+                if (UI_Button(u8"\uf0d7"))
                 {
                     if (update_state == RS2_CALIB_STATE_TARE_INPUT_ADVANCED)
                         update_state = RS2_CALIB_STATE_TARE_INPUT;
@@ -2035,6 +2040,9 @@ namespace rs2
 
                     ImGui::PushItemWidth(width - 145.f);
                     ImGui::Combo(id.c_str(), &get_manager().accuracy, vals_cstr.data(), int(vals.size()));
+#ifdef RS_DUMP_UI
+                    RS_LOG_LAST("combo", "Accuracy");
+#endif
 
                     ImGui::SetCursorScreenPos({ float(x + 135), float(y + 35 + ImGui::GetTextLineHeightWithSpacing()) });
 
@@ -2045,7 +2053,7 @@ namespace rs2
 
                     ImGui::SetCursorScreenPos({ float(x + 9), float(y + 52 + 4 * ImGui::GetTextLineHeightWithSpacing()) });
                     id = rsutils::string::from() << "Apply High-Accuracy Preset##apply_preset_" << index;
-                    ImGui::Checkbox(id.c_str(), &get_manager().apply_preset);
+                    UI_Checkbox(id.c_str(), &get_manager().apply_preset);
                 }
 
                 if (update_state == RS2_CALIB_STATE_TARE_INPUT_ADVANCED)
@@ -2094,7 +2102,7 @@ namespace rs2
                 else
                     ImGui::SetCursorScreenPos({ float(x + width - 52), float(y + 30) });
 
-                if (ImGui::Button(get_button_name.c_str(), { 42.0f, 20.f }))
+                if (UI_Button(get_button_name.c_str(), { 42.0f, 20.f }))
                 {
                     update_state_prev = update_state;
                     update_state = RS2_CALIB_STATE_GET_TARE_GROUND_TRUTH;
@@ -2105,7 +2113,7 @@ namespace rs2
 
                 ImGui::SetCursorScreenPos({ float(x + 9), float(y + height - ImGui::GetTextLineHeightWithSpacing() - 30) });
                 bool assistance = (get_manager().host_assistance != 0);
-                if (ImGui::Checkbox("Host Assistance", &assistance))
+                if (UI_Checkbox("Host Assistance", &assistance))
                     get_manager().host_assistance = (assistance ? 1 : 0);
                 if (ImGui::IsItemHovered())
                     RsImGui::CustomTooltip("%s", "check = host assitance for statistics data, uncheck = no host assistance");
@@ -2113,7 +2121,7 @@ namespace rs2
                 std::string button_name = rsutils::string::from() << "Calibrate" << "##tare" << index;
 
                 ImGui::SetCursorScreenPos({ float(x + 5), float(y + height - 28) });
-                if (ImGui::Button(button_name.c_str(), { float(bar_width), 20.f }))
+                if (UI_Button(button_name.c_str(), { float(bar_width), 20.f }))
                 {
                     get_manager().restore_workspace([](std::function<void()> a) { a(); });
                     get_manager().reset();
@@ -2154,6 +2162,7 @@ namespace rs2
 
                     ImGui::PushItemWidth(width - 145.f);
                     ImGui::Combo(id.c_str(), &get_manager().speed_fl, vals_cstr.data(), int(vals.size()));
+                    RS_LOG_LAST("combo", "Speed FL");
                     ImGui::PopItemWidth();
                 }
                 else
@@ -2163,6 +2172,7 @@ namespace rs2
 
                     ImGui::PushItemWidth(width - 145.f);
                     ImGui::Combo(id.c_str(), &get_manager().speed, vals_cstr.data(), int(vals.size()));
+                    RS_LOG_LAST("combo", "Speed");
                     ImGui::PopItemWidth();
                 }
 
@@ -2176,7 +2186,7 @@ namespace rs2
                     ImGui::SetCursorScreenPos({ float(x + 9), tmp_y });
                     id = to_string() << "##restore_" << index;
                     bool restore = (get_manager().adjust_both_sides == 1);
-                    if (ImGui::Checkbox("Adjust both sides focal length", &restore))
+                    if (UI_Checkbox("Adjust both sides focal length", &restore))
                         get_manager().adjust_both_sides = (restore ? 1 : 0);
                     if (ImGui::IsItemHovered())
                         RsImGui::CustomTooltip("%s", "check = adjust both sides, uncheck = adjust right side only");
@@ -2200,7 +2210,7 @@ namespace rs2
 
                 ImGui::SetCursorScreenPos({ float(x + 9), float(y + height - ImGui::GetTextLineHeightWithSpacing() - 31) });
                 bool assistance = (get_manager().host_assistance != 0);
-                ImGui::Checkbox("Host Assistance", &assistance);
+                UI_Checkbox("Host Assistance", &assistance);
                 if (ImGui::IsItemHovered())
                     RsImGui::CustomTooltip("%s", "check = host assitance for statistics data, uncheck = no host assistance");
 
@@ -2211,7 +2221,7 @@ namespace rs2
                 std::string button_name = rsutils::string::from() << "Calibrate" << "##self" << index;
 
                 ImGui::SetCursorScreenPos({ float(x + 5), float(y + height - 28) });
-                if (ImGui::Button(button_name.c_str(), { float(bar_width), 20.f }))
+                if (UI_Button(button_name.c_str(), { float(bar_width), 20.f }))
                 {
                     get_manager().restore_workspace([this](std::function<void()> a) { a(); });
                     get_manager().reset();
@@ -2282,7 +2292,7 @@ namespace rs2
 
                 ImGui::SetCursorScreenPos({ float(x + 20), float(y + 95) + 3 * ImGui::GetTextLineHeight() });
                 bool adj_both = (get_manager().adjust_both_sides == 1);
-                if (ImGui::Checkbox("Adjust both sides focal length", &adj_both))
+                if (UI_Checkbox("Adjust both sides focal length", &adj_both))
                     get_manager().adjust_both_sides = (adj_both ? 1 : 0);
                 if (ImGui::IsItemHovered())
                     RsImGui::CustomTooltip("%s", "check = adjust both sides, uncheck = adjust right side only");
@@ -2295,7 +2305,7 @@ namespace rs2
                 std::string button_name = rsutils::string::from() << "Calibrate" << "##fl" << index;
 
                 ImGui::SetCursorScreenPos({ float(x + 5), float(y + height - 25) });
-                if (ImGui::Button(button_name.c_str(), { float(bar_width), 20.f }))
+                if (UI_Button(button_name.c_str(), { float(bar_width), 20.f }))
                 {
                     get_manager().restore_workspace([this](std::function<void()> a) { a(); });
                     get_manager().reset();
@@ -2347,7 +2357,7 @@ namespace rs2
 
                     std::string button_name = rsutils::string::from() << "Retry" << "##retry" << index;
                     ImGui::SetCursorScreenPos({ float(x + 5), float(y + height - 25) });
-                    if (ImGui::Button(button_name.c_str(), { float(bar_width), 20.f }))
+                    if (UI_Button(button_name.c_str(), { float(bar_width), 20.f }))
                     {
                         get_manager().restore_workspace([](std::function<void()> a) { a(); });
                         get_manager().reset();
@@ -2433,7 +2443,7 @@ namespace rs2
                     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, saturate(sensor_header_light_blue, 1.5f));
                     ImGui::SetCursorScreenPos({ float(x + 9), float(y + height - 25) });
                     std::string button_name = rsutils::string::from() << "Apply" << "##apply" << index;
-                    if (ImGui::Button(button_name.c_str(), { float(bar_width - 60), 20.f }))
+                    if (UI_Button(button_name.c_str(), { float(bar_width - 60), 20.f }))
                     {
                         get_manager().apply_calib(true);     // Store the new calibration internally
                         get_manager().keep();            // Flash the new calibration
@@ -2842,7 +2852,7 @@ namespace rs2
                         button_name = rsutils::string::from() << "Recalibrate" << "##refl" << index;
 
                         ImGui::SetCursorScreenPos({ float(x + 5), float(y + height - 25) });
-                        if (ImGui::Button(button_name.c_str(), { scale * 3, 20.f }))
+                        if (UI_Button(button_name.c_str(), { scale * 3, 20.f }))
                         {
                             get_manager().restore_workspace([this](std::function<void()> a) { a(); });
                             get_manager().reset();
@@ -2865,7 +2875,7 @@ namespace rs2
                     button_name = rsutils::string::from() << "Apply New" << "##apply" << index;
                     if (!use_new_calib) button_name = rsutils::string::from() << "Keep Original" << "##original" << index;
 
-                    if (ImGui::Button(button_name.c_str(), { scale * 3, 20.f }))
+                    if (UI_Button(button_name.c_str(), { scale * 3, 20.f }))
                     {
                         if (use_new_calib)
                         {
@@ -2920,7 +2930,7 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, saturate(sensor_header_light_blue, 1.5f));
                 std::string button_name = rsutils::string::from() << "Health-Check" << "##health_check" << index;
 
-                if (ImGui::Button(button_name.c_str(), { float(bar_width), 20.f }) || update_manager->started())
+                if (UI_Button(button_name.c_str(), { float(bar_width), 20.f }) || update_manager->started())
                 {
                     auto _this = shared_from_this();
                     auto invoke = [_this](std::function<void()> action) {
@@ -2984,7 +2994,7 @@ namespace rs2
                     string id = rsutils::string::from() << "Expand" << "##" << index;
                     ImGui::SetCursorScreenPos({ float(x + width - 105), float(y + height - 25) });
                     ImGui::PushStyleColor(ImGuiCol_Text, light_grey);
-                    if (ImGui::Button(id.c_str(), { 100, 20 }))
+                    if (UI_Button(id.c_str(), { 100, 20 }))
                         expanded = true;
                     ImGui::PopStyleColor();
                 }
@@ -3064,7 +3074,7 @@ namespace rs2
             ImGui::SetCursorPosX(190);
             if (visible || update_manager->done() || update_manager->failed())
             {
-                if (ImGui::Button("OK", ImVec2(120, 0)))
+                if (UI_Button("OK", ImVec2(120, 0)))
                 {
                     if (update_manager->failed())
                         update_state = RS2_CALIB_STATE_FAILED;
@@ -3080,7 +3090,7 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, transparent);
                 ImGui::PushStyleColor(ImGuiCol_Text, transparent);
                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, transparent);
-                ImGui::Button("OK", ImVec2(120, 0));
+                UI_Button("OK", ImVec2(120, 0));
                 ImGui::PopStyleColor(5);
             }
 

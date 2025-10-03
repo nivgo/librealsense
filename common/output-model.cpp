@@ -8,6 +8,10 @@
 #include "device-model.h"
 #include "os.h"
 
+#ifdef RS_DUMP_UI
+#include "../tools/realsense-viewer/ui_dump.h"
+#endif
+
 #include <imgui_internal.h>
 #include <librealsense2/hpp/rs_internal.hpp>
 
@@ -184,7 +188,7 @@ bool output_model::round_indicator(ux_window& win, std::string icon,
     ImGui::GetWindowDrawList()->AddRectFilled({ pos.x, pos.y + 3 },
                 { pos.x + size.x + 15, pos.y + 27 }, ImColor(color), 12, ImDrawFlags_RoundCornersNone);
 
-    auto res = ImGui::Button(ss.str().c_str(), ImVec2(size.x + 15, 28));
+    auto res = UI_Button(ss.str().c_str(), ImVec2(size.x + 15, 28));
     if (count > 0 && ImGui::IsItemHovered())
     {
         highlighted = true;
@@ -235,7 +239,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
     ImGui::SetCursorPosX(w - 31);
     if (!is_output_open)
     {
-        if (ImGui::Button(u8"\uF139", ImVec2(28, 28)))
+        if (UI_Button(u8"\uF139", ImVec2(28, 28)))
         {
             open(win);
         }
@@ -250,7 +254,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
     }
     else
     {
-        if (ImGui::Button(u8"\uF13A", ImVec2(28, 28)))
+        if (UI_Button(u8"\uF13A", ImVec2(28, 28)))
         {
             is_output_open = false;
             config_file::instance().set(configurations::viewer::output_open, false);
@@ -305,7 +309,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
         ImGui::PushStyleColor(ImGuiCol_Text, light_grey);
     }
     bool focus_search = false;
-    if (ImGui::Button(u8"\uF002", ImVec2(28, 28)))
+    if (UI_Button(u8"\uF002", ImVec2(28, 28)))
     {
         focus_search = true;
         search_open = true;
@@ -319,7 +323,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
     }
     ImGui::SameLine();
 
-    if( ImGui::Button( u8"\u0023", ImVec2( 28, 28 ) ) )
+    if( UI_Button( u8"\u0023", ImVec2( 28, 28 ) ) )
     {
         search_open = false; // Only one text box can be open at a time
         set_number_open = true;
@@ -413,7 +417,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, white);
     }
 
-    if (ImGui::Button(u8"\uF2DB", ImVec2(28, 28)))
+    if (UI_Button(u8"\uF2DB", ImVec2(28, 28)))
     {
         enable_firmware_logs = !enable_firmware_logs;
     }
@@ -536,13 +540,13 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
             {
                 log.selected = true;
                 ImGui::PushFont(win.get_font());
-                if (ImGui::Selectable("Copy Line")) {
+                if (UI_Selectable("Copy Line")) {
                     glfwSetClipboardString(win, full.c_str());
                 }
-                if (ImGui::Selectable("Copy All")) {
+                if (UI_Selectable("Copy All")) {
                     copy_all = true;
                 }
-                if (ImGui::Selectable("Save As...")) {
+                if (UI_Selectable("Save As...")) {
                     save_all = true;
                 }
                 ImGui::PopFont();
@@ -695,7 +699,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
 
         if( is_dashboard_open )
         {
-            if( ImGui::Button( u8"\uf138", collapse_dashboard_button_size ) )  // close dashboard
+            if( UI_Button( u8"\uf138", collapse_dashboard_button_size ) )  // close dashboard
             {
                 is_dashboard_open = false;
                 config_file::instance().set( configurations::viewer::dashboard_open, is_dashboard_open );
@@ -715,7 +719,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
             float cursor_pos_x = ImGui::GetCursorPosX();
             ImGui::SetCursorPosX( 0 );
 
-            if( ImGui::Button( u8"\uf137", collapse_dashboard_button_size ) )  // open dashboard
+            if( UI_Button( u8"\uf137", collapse_dashboard_button_size ) )  // open dashboard
             {
                 is_dashboard_open = true;
                 config_file::instance().set( configurations::viewer::dashboard_open, is_dashboard_open );
@@ -765,7 +769,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
             ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
             const auto new_dashboard_name = "new_dashboard";
             ImGui::SameLine();
-            if (ImGui::Button(u8"\uF0D0 Add Dashboard", ImVec2(-1, 25)))
+            if (UI_Button(u8"\uF0D0 Add Dashboard", ImVec2(-1, 25)))
             {
                 ImGui::OpenPopup(new_dashboard_name);
             }
@@ -794,7 +798,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
                     {
                         name = name + "##New";
                         bool selected = false;
-                        if (ImGui::Selectable(name.c_str(), &selected))
+                        if (UI_Selectable(name.c_str(), &selected))
                         {
                             dashboards.push_back(kvp.second(kvp.first));
                         }
@@ -1119,7 +1123,7 @@ void stream_dashboard::draw_dashboard(ux_window& win, rect& r)
     ImGui::SetCursorPosX(r.w - 25);
     ImGui::SetCursorPosY( 3.f + collapse_buton_h );
     std::string id = rsutils::string::from() << u8"\uF00D##Close_" << name;
-    if (ImGui::Button(id.c_str(),ImVec2(22,22)))
+    if (UI_Button(id.c_str(),ImVec2(22,22)))
     {
         close();
     }
@@ -1267,6 +1271,9 @@ void frame_drops_dashboard::draw(ux_window& win, rect r)
     {
         clear(false);
     }
+#ifdef RS_DUMP_UI
+    RS_LOG_LAST("combo", "FPS Method");
+#endif
     ImGui::PopItemWidth();
 }
 

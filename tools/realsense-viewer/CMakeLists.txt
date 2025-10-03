@@ -4,6 +4,10 @@ cmake_minimum_required(VERSION 3.8)
 
 project(realsense-viewer)
 
+# UI dumping and control API options
+option(RS_DUMP_UI "Dump ImGui UI tree + screenshots" ON)
+option(RS_API     "Enable local control API (click/scroll/type)" ON)
+
 if(WIN32)
     add_executable( ${PROJECT_NAME} WIN32 "" )
     target_link_libraries( ${PROJECT_NAME} OpenGL::GL)
@@ -211,6 +215,17 @@ else()
         PRIVATE
             ${RS_VIEWER_CPP}
         )
+endif()
+
+# Add conditional source files and compile definitions
+if(RS_DUMP_UI)
+    target_compile_definitions(realsense-viewer PRIVATE RS_DUMP_UI=1)
+    target_sources(realsense-viewer PRIVATE ui_dump.cpp ui_dump.h)
+endif()
+
+if(RS_API)
+    target_compile_definitions(realsense-viewer PRIVATE RS_API=1)
+    target_sources(realsense-viewer PRIVATE ui_actions.cpp ui_actions.h)
 endif()
 
 if(OPENVINO2019)

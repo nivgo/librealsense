@@ -10,6 +10,7 @@
 #include "notifications.h"
 #include <imgui_internal.h>
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 #include "model-views.h"
 #include "os.h"
 #include "viewer.h"
@@ -274,18 +275,18 @@ namespace rs2
         std::string dismiss_popup = rsutils::string::from() << "Dismiss Options" << "##" << index;
         if (ImGui::BeginPopup(dismiss_popup.c_str()))
         {
-            if (ImGui::Selectable("Just this time"))
+            if (UI_Selectable("Just this time"))
             {
                 dismiss(true);
             }
 
-            if (ImGui::Selectable("Remind me later"))
+            if (UI_Selectable("Remind me later"))
             {
                 delay(7);
                 dismiss(true);
             }
 
-            if (ImGui::Selectable("Don't show again"))
+            if (UI_Selectable("Don't show again"))
             {
                 delay(1000);
                 dismiss(true);
@@ -297,7 +298,7 @@ namespace rs2
         ImGui::PopFont();
         ImGui::PopStyleColor(4);
 
-        if (ImGui::Button(id.c_str(), { 100, 20 }))
+        if (UI_Button(id.c_str(), { 100, 20 }))
         {
             if (enable_complex_dismiss)
                 ImGui::OpenPopup(dismiss_popup.c_str());
@@ -393,7 +394,7 @@ namespace rs2
 
                 ImGui::PushStyleColor(ImGuiCol_Button, transparent);
 
-                if (ImGui::Button(button_name.c_str(), { (float)width, (float)height }))
+                if (UI_Button(button_name.c_str(), { (float)width, (float)height }))
                 {
                     follow_up = custom_action;
                     dismiss(false);
@@ -425,7 +426,7 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_ButtonActive, transparent);
                 ImGui::PushStyleColor(ImGuiCol_ButtonHovered, transparent);
                 string id = rsutils::string::from() << textual_icons::dotdotdot << "##" << index;
-                if (ImGui::Button(id.c_str()))
+                if (UI_Button(id.c_str()))
                 {
                     selected = shared_from_this();
                 }
@@ -619,7 +620,7 @@ namespace rs2
                     s.size() + 1, { 500,100 }, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_ReadOnly);
                 ImGui::PopStyleColor();
 
-                if (ImGui::Button("OK", ImVec2(120, 0)))
+                if (UI_Button("OK", ImVec2(120, 0)))
                 {
                     selected->message = "";
                     selected = nullptr;
@@ -636,7 +637,7 @@ namespace rs2
                     if (clip != "")
                     {
                         ImGui::SameLine();
-                        if (ImGui::Button(" Copy Commands "))
+                        if (UI_Button(" Copy Commands "))
                         {
                             glfwSetClipboardString(win, clip.c_str());
                         }
@@ -711,7 +712,7 @@ namespace rs2
         std::string link = rsutils::string::from() << "https://github.com/IntelRealSense/librealsense/wiki/Release-Notes#release-" << _version;
 
         ImGui::PushStyleColor(ImGuiCol_Text, alpha(light_blue, 1.f - t));
-        if (ImGui::Button("What's new"))
+        if (UI_Button("What's new"))
         {
             open_url(link.c_str());
         }
@@ -995,7 +996,7 @@ namespace rs2
         std::string button_name = rsutils::string::from() << "Enable" << "##enable_metadata" << index;
 
         const auto bar_width = width - 115;
-        if (ImGui::Button(button_name.c_str(), { float(bar_width), 20.f }))
+        if (UI_Button(button_name.c_str(), { float(bar_width), 20.f }))
         {
             metadata_helper::instance().enable_metadata();
             dismiss(false);
@@ -1091,7 +1092,7 @@ namespace rs2
 
         ImGui::PushStyleColor(ImGuiCol_Text, alpha(white, 1.f - t));
         std::string button_name = rsutils::string::from() << "Learn More..." << "##" << index;
-        if (ImGui::Button(button_name.c_str(), { float(bar_width), 20.f }))
+        if (UI_Button(button_name.c_str(), { float(bar_width), 20.f }))
         {
             bool should_dismiss = true;
             try

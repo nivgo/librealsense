@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <rsutils/string/string-utilities.h>
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 
 #define TEXT_BUFF_SIZE 1024
 
@@ -25,7 +26,7 @@ bool* draw_edit_button(const char* id, T val, std::string*& val_str)
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, { 0.8f, 0.8f, 0.8f, 1.f } );
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 1.f,1.f,1.f,0.f });
         ImGui::PushStyleColor(ImGuiCol_Button, { 1.f,1.f,1.f,0.f });
-        if (ImGui::Button(edit_id.c_str(), { 20, 20 }))
+        if (UI_Button(edit_id.c_str(), { 20, 20 }))
         {
             edit_value[id] = rsutils::string::from( val );
             edit_mode[id] = true;
@@ -43,7 +44,7 @@ bool* draw_edit_button(const char* id, T val, std::string*& val_str)
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg,  { 0.8f, 0.8f, 1.f, 1.f });
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, { 1.f,1.f,1.f,0.f });
         ImGui::PushStyleColor(ImGuiCol_Button, { 1.f,1.f,1.f,0.f });
-        if (ImGui::Button(edit_id.c_str(), { 20, 20 }))
+        if (UI_Button(edit_id.c_str(), { 20, 20 }))
         {
             edit_mode[id] = false;
         }
@@ -115,7 +116,7 @@ inline void checkbox(const char* id, T* val, S T::* f, bool& to_set)
 {
     bool temp = (val->*f) > 0;
 
-    if (ImGui::Checkbox(id, &temp))
+    if (UI_Checkbox(id, &temp))
     {
         val->*f = temp ? 1 : 0;
         to_set = true;
@@ -231,7 +232,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
         get_curr_advanced_controls = false;
     }
 
-    if (ImGui::TreeNode("Depth Control"))
+    if (UI_TreeNode("Depth Control"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -267,7 +268,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Rsm"))
+    if (UI_TreeNode("Rsm"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -298,7 +299,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
     }
 
 
-    if (ImGui::TreeNode("Rau Support Vector Control"))
+    if (UI_TreeNode("Rau Support Vector Control"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -332,7 +333,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Color Control"))
+    if (UI_TreeNode("Color Control"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -363,7 +364,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Rau Color Thresholds Control"))
+    if (UI_TreeNode("Rau Color Thresholds Control"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -392,7 +393,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("SLO Color Thresholds Control"))
+    if (UI_TreeNode("SLO Color Thresholds Control"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -421,7 +422,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("SLO Penalty Control"))
+    if (UI_TreeNode("SLO Penalty Control"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -453,7 +454,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("HDAD"))
+    if (UI_TreeNode("HDAD"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -484,7 +485,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Color Correction"))
+    if (UI_TreeNode("Color Correction"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -522,7 +523,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Depth Table"))
+    if (UI_TreeNode("Depth Table"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -554,7 +555,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
     }
 
     //AE setpoint is blocked in D457 
-    if (!d457_device && ImGui::TreeNode("AE Control"))
+    if (!d457_device && UI_TreeNode("AE Control"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -581,7 +582,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Census Enable Reg"))
+    if (UI_TreeNode("Census Enable Reg"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
@@ -609,7 +610,7 @@ inline void draw_advanced_mode_controls(rs400::advanced_mode& advanced,
         ImGui::TreePop();
     }
 
-    if (ImGui::TreeNode("Disparity Modulation"))
+    if (UI_TreeNode("Disparity Modulation"))
     {
         ImGui::PushItemWidth(ImGui::CalcItemWidth());
 
