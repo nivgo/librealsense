@@ -124,8 +124,6 @@ inline bool RS_SliderFloat(const char* label, float* v, float v_min, float v_max
         n.value = v ? *v : 0.0; 
         n.vmin = v_min; 
         n.vmax = v_max; 
-        n.vstep = 0.001; // default step for float sliders
-        n.drag_axis = "x"; // horizontal sliders
         n.actions = {"drag", "click"}; 
         n.action_point = ImVec2((n.min.x + n.max.x) * 0.5f, (n.min.y + n.max.y) * 0.5f);
         n.track_from = ImVec2(n.min.x, (n.min.y + n.max.y) * 0.5f);
@@ -142,8 +140,6 @@ inline bool RS_SliderInt(const char* label, int* v, int v_min, int v_max, const 
         n.value = v ? *v : 0.0; 
         n.vmin = v_min; 
         n.vmax = v_max; 
-        n.vstep = 1.0; // integer step
-        n.drag_axis = "x"; // horizontal sliders
         n.actions = {"drag", "click"}; 
         n.action_point = ImVec2((n.min.x + n.max.x) * 0.5f, (n.min.y + n.max.y) * 0.5f);
         n.track_from = ImVec2(n.min.x, (n.min.y + n.max.y) * 0.5f);
@@ -156,13 +152,11 @@ inline bool RS_SliderInt(const char* label, int* v, int v_min, int v_max, const 
 inline bool RS_DragFloat(const char* label, float* v, float v_speed = 1.0f, float v_min = 0.0f, float v_max = 0.0f, const char* format = "%.3f", ImGuiSliderFlags flags = 0)
 {
     bool result = ImGui::DragFloat(label, v, v_speed, v_min, v_max, format, flags);
-    RS_LOG_LAST("slider", label); // Normalize drag to slider type
-    ui_set_last([v, v_min, v_max, v_speed](UiNode& n){ 
+    RS_LOG_LAST("drag", label);
+    ui_set_last([v, v_min, v_max](UiNode& n){ 
         n.value = v ? *v : 0.0; 
         n.vmin = v_min; 
         n.vmax = v_max; 
-        n.vstep = v_speed; // drag speed becomes step
-        n.drag_axis = "x"; // drag controls are typically horizontal
         n.actions = {"drag", "click"}; 
         n.action_point = ImVec2((n.min.x + n.max.x) * 0.5f, (n.min.y + n.max.y) * 0.5f);
     });
@@ -172,13 +166,11 @@ inline bool RS_DragFloat(const char* label, float* v, float v_speed = 1.0f, floa
 inline bool RS_DragInt(const char* label, int* v, float v_speed = 1.0f, int v_min = 0, int v_max = 0, const char* format = "%d", ImGuiSliderFlags flags = 0)
 {
     bool result = ImGui::DragInt(label, v, v_speed, v_min, v_max, format, flags);
-    RS_LOG_LAST("slider", label); // Normalize drag to slider type
-    ui_set_last([v, v_min, v_max, v_speed](UiNode& n){ 
+    RS_LOG_LAST("drag", label);
+    ui_set_last([v, v_min, v_max](UiNode& n){ 
         n.value = v ? *v : 0.0; 
         n.vmin = v_min; 
         n.vmax = v_max; 
-        n.vstep = v_speed; // drag speed becomes step
-        n.drag_axis = "x"; // drag controls are typically horizontal
         n.actions = {"drag", "click"}; 
         n.action_point = ImVec2((n.min.x + n.max.x) * 0.5f, (n.min.y + n.max.y) * 0.5f);
     });

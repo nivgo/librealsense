@@ -8,7 +8,8 @@
 
 #ifdef RS_DUMP_UI
 #include "../tools/realsense-viewer/ui_dump.h"
-#endif: Apache 2.0. See LICENSE file in root directory.
+#endif
+// Apache 2.0. See LICENSE file in root directory.
 // Copyright(c) 2024 Intel Corporation. All Rights Reserved.
 
 #include "dds-model.h"

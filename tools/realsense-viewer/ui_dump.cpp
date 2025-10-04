@@ -1,4 +1,5 @@
 #include "ui_dump.h"
+#include "json_normalizer.h"
 #include <imgui_internal.h>
 #include <fstream>
 #include <iomanip>
@@ -9,6 +10,7 @@
 #include <unordered_map>
 #include <map>
 #include <set>
+#include <algorithm>
 #include <iostream>
 #ifdef __APPLE__
 #  include <OpenGL/gl3.h>
@@ -42,6 +44,353 @@
 UiDump g_uidump;
 
 static uint64_t widen(ImGuiID id){ return static_cast<uint64_t>(id); }
+
+// Stable ID generation - core infrastructure function
+uint64_t stable_id_from(ImGuiID imgui_id, uint64_t parent_id, const char* type, const char* label_norm) {
+    if (imgui_id) return (uint64_t)imgui_id;
+    
+    // 64-bit hash over composite key when ImGuiID is 0
+    std::string key = std::to_string(parent_id) + "|" + (type ? type : "") + "|" + (label_norm ? label_norm : "");
+    return (uint64_t)ImHashStr(key.c_str());
+}
+
+// Label normalization - strip icons, counters, device serials
+std::string normalize_label(const std::string& raw_label) {
+    std::string result = raw_label;
+    
+    // Remove leading/trailing whitespace
+    size_t start = result.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return "";
+    size_t end = result.find_last_not_of(" \t\r\n");
+    result = result.substr(start, end - start + 1);
+    
+    // Remove common icon prefixes (textual_icons namespace)
+    if (result.size() >= 2 && (unsigned char)result[0] >= 0x80) {
+        // Skip UTF-8 icon characters at start
+        size_t i = 0;
+        while (i < result.size() && (unsigned char)result[i] >= 0x80) {
+            i++;
+            while (i < result.size() && ((unsigned char)result[i] & 0xC0) == 0x80) i++; // Skip continuation bytes
+        }
+        if (i < result.size()) {
+            result = result.substr(i);
+            // Remove leading spaces after icon
+            start = result.find_first_not_of(" \t");
+            if (start != std::string::npos) result = result.substr(start);
+        }
+    }
+    
+    // Remove trailing counters like " (12)", " [5]", device serials
+    std::string patterns[] = {
+        R"(\s*\(\d+\)$)",        // " (12)"
+        R"(\s*\[\d+\]$)",        // " [5]"
+        R"(\s*,\s*\d{9,}$)",     // ", 309622300985" (device serial)
+        R"(\s*##.*$)"            // "##anything" (ImGui ID suffix)
+    };
+    
+    for (const auto& pattern : patterns) {
+        // Simple pattern matching - remove common counter patterns
+        if (result.find(" (") != std::string::npos) {
+            size_t pos = result.rfind(" (");
+            if (pos != std::string::npos && result.back() == ')') {
+                bool all_digits = true;
+                for (size_t i = pos + 2; i < result.size() - 1; i++) {
+                    if (!std::isdigit(result[i])) { all_digits = false; break; }
+                }
+                if (all_digits) result = result.substr(0, pos);
+            }
+        }
+        if (result.find("##") != std::string::npos) {
+            size_t pos = result.find("##");
+            result = result.substr(0, pos);
+        }
+    }
+    
+    // Collapse multiple spaces
+    std::string collapsed;
+    bool last_was_space = false;
+    for (char c : result) {
+        if (c == ' ' || c == '\t') {
+            if (!last_was_space) {
+                collapsed += ' ';
+                last_was_space = true;
+            }
+        } else {
+            collapsed += c;
+            last_was_space = false;
+        }
+    }
+    
+    // Final trim
+    start = collapsed.find_first_not_of(" ");
+    if (start == std::string::npos) return "";
+    end = collapsed.find_last_not_of(" ");
+    return collapsed.substr(start, end - start + 1);
+}
+
+// Type normalization - maps raw types to stable normalized types
+std::string normalize_type(const std::string& raw_type) {
+    // Main type mappings
+    if (raw_type == "window.auto") return "window";
+    if (raw_type == "popup_window") return "popup";
+    if (raw_type == "tooltip_window") return "tooltip";
+    if (raw_type == "scrollbarY") return "scrollbar";
+    if (raw_type == "scrollbarX") return "scrollbar";
+    if (raw_type == "treenode") return "header"; // collapsible sections
+    if (raw_type == "drag" || raw_type == "slider") return "slider";
+    
+    // Keep these as-is
+    if (raw_type == "button" || raw_type == "checkbox" || 
+        raw_type == "combo" || raw_type == "selectable" || 
+        raw_type == "child" || raw_type == "popup" ||
+        raw_type == "tooltip" || raw_type == "window" ||
+        raw_type == "header" || raw_type == "slider" ||
+        raw_type == "scrollbar" || raw_type == "input_text" ||
+        raw_type == "input_int" || raw_type == "input_float" ||
+        raw_type == "color" || raw_type == "label" ||
+        raw_type == "tabbar" || raw_type == "tabitem" ||
+        raw_type == "menu_bar" || raw_type == "menu") {
+        return raw_type;
+    }
+    
+    // Fallback to custom for unknown types
+    return "custom";
+}
+
+// Post-emit normalization pass - applies all v1.2.0 transformations
+void normalize_frame_post_emit(UiDumpFrame& frame) {
+    // Step 1: Normalize types
+    for (auto& node : frame.nodes) {
+        std::string old_type = node.type;
+        node.type = normalize_type(old_type);
+        
+        // Add drag_axis for scrollbars and sliders
+        if (node.type == "scrollbar") {
+            if (old_type == "scrollbarY") node.drag_axis = "y";
+            else if (old_type == "scrollbarX") node.drag_axis = "x";
+        } else if (node.type == "slider") {
+            // Infer drag axis from track geometry
+            if (node.track_from.x != 0.0f || node.track_to.x != 0.0f) {
+                float dx = std::abs(node.track_to.x - node.track_from.x);
+                float dy = std::abs(node.track_to.y - node.track_from.y);
+                node.drag_axis = (dx > dy) ? "x" : "y";
+            }
+        }
+        
+        // Ensure disabled state mirrors enabled
+        node.disabled = !node.enabled;
+    }
+    
+    // Step 2: Deduplicate nodes
+    deduplicate_nodes(frame);
+    
+    // Step 3: Calculate visibility and container relationships
+    calculate_visibility_and_containers(frame);
+    
+    // Step 4: Assign z-indices to top-level surfaces
+    assign_z_indices(frame);
+}
+
+// Deduplication - merge nodes with same ID but different renderings
+void deduplicate_nodes(UiDumpFrame& frame) {
+    std::unordered_map<uint64_t, size_t> id_to_index;
+    std::vector<UiNode> deduplicated;
+    
+    for (const auto& node : frame.nodes) {
+        auto it = id_to_index.find(node.id);
+        if (it != id_to_index.end()) {
+            // Merge with existing node
+            UiNode& existing = deduplicated[it->second];
+            
+            // Add label variants to aliases
+            if (!existing.label_raw.empty() && existing.label_raw != node.label_raw) {
+                bool found = false;
+                for (const auto& alias : existing.aliases) {
+                    if (alias == existing.label_raw) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    existing.aliases.push_back(existing.label_raw);
+                }
+            }
+            
+            if (!node.label_raw.empty() && node.label_raw != existing.label_raw) {
+                bool found = false;
+                for (const auto& alias : existing.aliases) {
+                    if (alias == node.label_raw) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    existing.aliases.push_back(node.label_raw);
+                }
+            }
+            
+            // Use the most informative label
+            if (existing.label_raw.empty() || 
+                (node.label_raw.length() > existing.label_raw.length() && !node.label_raw.empty())) {
+                existing.label_raw = node.label_raw;
+                existing.label_norm = node.label_norm;
+            }
+            
+            // Merge action lists
+            for (const auto& action : node.actions) {
+                bool found = false;
+                for (const auto& existing_action : existing.actions) {
+                    if (existing_action == action) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    existing.actions.push_back(action);
+                }
+            }
+            
+            // Keep most up-to-date state
+            existing.hovered = existing.hovered || node.hovered;
+            existing.active = existing.active || node.active;
+            existing.focused = existing.focused || node.focused;
+            
+        } else {
+            // New node
+            id_to_index[node.id] = deduplicated.size();
+            deduplicated.push_back(node);
+        }
+    }
+    
+    frame.nodes = std::move(deduplicated);
+}
+
+// Calculate visibility and container relationships
+void calculate_visibility_and_containers(UiDumpFrame& frame) {
+    // Build container hierarchy
+    std::unordered_map<uint64_t, ImRect> container_rects;
+    
+    // First pass: identify containers and their viewports
+    for (const auto& kv : frame.containers) {
+        uint64_t container_id = kv.first;
+        const ScrollInfo& info = kv.second;
+        
+        // Find the container node to get its viewport
+        for (const auto& node : frame.nodes) {
+            if (node.id == container_id) {
+                container_rects[container_id] = ImRect(node.min, node.max);
+                break;
+            }
+        }
+    }
+    
+    // Second pass: calculate visibility for each node
+    for (auto& node : frame.nodes) {
+        ImRect node_rect(node.min, node.max);
+        
+        if (node.container_id == 0) {
+            // Top-level node - check against display bounds
+            ImRect display_rect(0, 0, frame.display.x, frame.display.y);
+            
+            if (display_rect.Contains(node_rect)) {
+                node.onscreen = true;
+                node.visible_area = 1.0f;
+                node.offscreen_reason = "";
+            } else {
+                node.onscreen = false;
+                
+                // Calculate intersection
+                ImRect intersection = node_rect;
+                intersection.ClipWith(display_rect);
+                float intersection_area = intersection.GetArea();
+                float node_area = node_rect.GetArea();
+                node.visible_area = (node_area > 0) ? (intersection_area / node_area) : 0.0f;
+                
+                // Determine offscreen reason
+                if (node_rect.Max.y < display_rect.Min.y) node.offscreen_reason = "above";
+                else if (node_rect.Min.y > display_rect.Max.y) node.offscreen_reason = "below";
+                else if (node_rect.Max.x < display_rect.Min.x) node.offscreen_reason = "left";
+                else if (node_rect.Min.x > display_rect.Max.x) node.offscreen_reason = "right";
+                else node.offscreen_reason = "partially_offscreen";
+            }
+        } else {
+            // Child node - check against container viewport
+            auto container_it = container_rects.find(node.container_id);
+            if (container_it != container_rects.end()) {
+                ImRect container_rect = container_it->second;
+                
+                if (container_rect.Contains(node_rect)) {
+                    node.onscreen = true;
+                    node.visible_area = 1.0f;
+                    node.offscreen_reason = "";
+                } else {
+                    node.onscreen = false;
+                    
+                    // Calculate intersection with container
+                    ImRect intersection = node_rect;
+                    intersection.ClipWith(container_rect);
+                    float intersection_area = intersection.GetArea();
+                    float node_area = node_rect.GetArea();
+                    node.visible_area = (node_area > 0) ? (intersection_area / node_area) : 0.0f;
+                    
+                    // Determine offscreen reason relative to container
+                    if (node_rect.Max.y < container_rect.Min.y) node.offscreen_reason = "above";
+                    else if (node_rect.Min.y > container_rect.Max.y) node.offscreen_reason = "below";
+                    else if (node_rect.Max.x < container_rect.Min.x) node.offscreen_reason = "left";
+                    else if (node_rect.Min.x > container_rect.Max.x) node.offscreen_reason = "right";
+                    else node.offscreen_reason = "partially_offscreen";
+                }
+            } else {
+                // Container not found - assume visible
+                node.onscreen = true;
+                node.visible_area = 1.0f;
+                node.offscreen_reason = "";
+            }
+        }
+    }
+}
+
+// Assign z-indices to top-level surfaces (windows, popups, tooltips)
+void assign_z_indices(UiDumpFrame& frame) {
+    int z_counter = 1;
+    
+    // Sort nodes by type priority for z-index assignment
+    std::vector<std::pair<int, size_t>> priority_indices;
+    
+    for (size_t i = 0; i < frame.nodes.size(); ++i) {
+        const auto& node = frame.nodes[i];
+        
+        // Assign priority based on type (lower number = lower z-index)
+        int priority = 100; // default for non-top-level
+        
+        if (node.type == "window") priority = 1;
+        else if (node.type == "child") priority = 2;
+        else if (node.type == "popup") priority = 10;
+        else if (node.type == "tooltip") priority = 20;
+        else if (node.container_id == 0) priority = 5; // other top-level elements
+        
+        priority_indices.push_back({priority, i});
+    }
+    
+    // Sort by priority
+    std::sort(priority_indices.begin(), priority_indices.end());
+    
+    // Assign z-indices
+    for (const auto& pair : priority_indices) {
+        size_t index = pair.second;
+        UiNode& node = frame.nodes[index];
+        
+        if (pair.first <= 20) { // Only assign z-index to top-level surfaces
+            node.z_index = z_counter++;
+        }
+    }
+}
+
+// Node modification helper
+void ui_set_last(std::function<void(UiNode&)> modifier) {
+    if (!g_uidump.enabled || g_uidump.cur.nodes.empty()) return;
+    modifier(g_uidump.cur.nodes.back());
+}
 
 // Enhanced sanitize function to escape JSON control characters
 static std::string sanitize(std::string s) {
@@ -97,22 +446,50 @@ void ui_dump_begin_frame(int frame_idx){
     g_uidump.cur = {};
     g_uidump.cur.frame_index = frame_idx;
     g_uidump.cur.display = ImGui::GetIO().DisplaySize;
+    g_uidump.cur.ui_version = "1.1.0";
+    g_uidump.cur.app_version = "2.50.0"; // TODO: Get actual version
+    g_uidump.cur.frame_ts = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    g_uidump.cur.input_event_type = "null"; // TODO: Track actual input events
+    g_uidump.cur.input_event_data = "{}";
+    
     g_uidump.parent_stack.clear();
+    g_uidump.scrollable_ancestor_stack.clear();
     g_uidump.current_container = 0;
+    g_uidump.seen_ids_this_frame.clear();
+    g_uidump.synth_counter = 1;
+    g_uidump.z_counter = 0;
 }
 
 // windows and children -------------------------------------------------
 
-void ui_dump_on_begin_window(const char* title, ImGuiID id, bool scrollable){
+void ui_dump_on_begin_window(const char* title, ImGuiID id, bool scrollable, uint64_t owner_id){
     if(!g_uidump.enabled) return;
+    
     UiNode node;
-    node.id = widen(id);
-    node.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
+    ImGuiID iid = id;
+    uint64_t parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
+    std::string raw_label = sanitize(title ? title : "");
+    std::string norm_label = normalize_label(raw_label);
+    
+    node.id = stable_id_from(iid, parent_id, "window", norm_label.c_str());
+    node.parent_id = parent_id;
     node.type = "window";
-    node.label = sanitize(title ? title : "");
+    node.label_raw = raw_label;
+    node.label_norm = norm_label;
     node.visible = true; // windows are "visible" when begun
+    node.owner_id = owner_id;
+    node.z_index = g_uidump.z_counter++;
+    
     ImGuiWindow* w = ImGui::GetCurrentWindow();
-    node.min = w->OuterRectClipped.Min; node.max = w->OuterRectClipped.Max;
+    node.min = w->OuterRectClipped.Min; 
+    node.max = w->OuterRectClipped.Max;
+    node.container_id = g_uidump.scrollable_ancestor_stack.empty() ? 0 : g_uidump.scrollable_ancestor_stack.back();
+    
+    // Set action affordances for windows
+    node.actions = {}; // Windows typically don't have direct actions
+    node.action_point = ImVec2((node.min.x + node.max.x) * 0.5f, (node.min.y + node.max.y) * 0.5f);
+    
     g_uidump.cur.nodes.push_back(node);
     g_uidump.parent_stack.push_back(node.id);
 
@@ -124,13 +501,25 @@ void ui_dump_on_begin_window(const char* title, ImGuiID id, bool scrollable){
         si.content = w->ContentSize;
         g_uidump.cur.containers[node.id] = si;
         g_uidump.current_container = node.id;
+        g_uidump.scrollable_ancestor_stack.push_back(node.id);
     }
 }
 
 void ui_dump_on_end_window(){
     if(!g_uidump.enabled) return;
-    if(!g_uidump.parent_stack.empty()) g_uidump.parent_stack.pop_back();
-    if(g_uidump.parent_stack.empty()) g_uidump.current_container = 0;
+    if(!g_uidump.parent_stack.empty()) {
+        uint64_t ending_window_id = g_uidump.parent_stack.back();
+        g_uidump.parent_stack.pop_back();
+        
+        // If this was a scrollable window, remove from scrollable stack
+        if (!g_uidump.scrollable_ancestor_stack.empty() && 
+            g_uidump.scrollable_ancestor_stack.back() == ending_window_id) {
+            g_uidump.scrollable_ancestor_stack.pop_back();
+        }
+    }
+    
+    // Update current container to the top of scrollable stack
+    g_uidump.current_container = g_uidump.scrollable_ancestor_stack.empty() ? 0 : g_uidump.scrollable_ancestor_stack.back();
 }
 
 void ui_dump_on_begin_child(const char* label, ImGuiID id, bool scrollable){
@@ -141,7 +530,8 @@ void ui_dump_on_begin_child(const char* label, ImGuiID id, bool scrollable){
     node.id = child_id;
     node.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     node.type = "child";
-    node.label = std::string(sanitize(label ? label : "")) + " (group)";
+    node.label_raw = std::string(sanitize(label ? label : "")) + " (group)";
+    node.label_norm = normalize_label(node.label_raw);
     ImGuiWindow* w = ImGui::GetCurrentWindow();
     node.min = w->OuterRectClipped.Min; node.max = w->OuterRectClipped.Max;
     node.visible = true;
@@ -171,83 +561,191 @@ void ui_dump_on_end_child(){
 
 void ui_dump_on_item_committed(const char* type, const char* label){
     if(!g_uidump.enabled) return;
+    
     UiNode n;
-    ImGuiWindow* w = ImGui::GetCurrentWindow();
-    n.id = widen(ImGui::GetItemID());
-    n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
+    ImGuiID iid = ImGui::GetItemID();
+    uint64_t parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
+    std::string raw_label = sanitize(label ? label : "");
+    std::string norm_label = normalize_label(raw_label);
+    
+    n.id = stable_id_from(iid, parent_id, type, norm_label.c_str());
+    n.parent_id = parent_id;
     n.type = type ? type : "item";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = raw_label;
+    n.label_norm = norm_label;
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
+    
     const ImGuiItemStatusFlags st = ImGui::GetItemStatusFlags();
     n.visible = ImGui::IsItemVisible();
     n.hovered = (st & ImGuiItemStatusFlags_HoveredRect) != 0;
     n.active  = ImGui::IsItemActive();
     n.focused = ImGui::IsItemFocused();
     n.enabled = true;  // TODO: detect disabled
-    n.container_id = g_uidump.current_container;
-    // Heuristic: try to read last slider value from internal storage if active/just edited (requires imgui_internal)
-    if(n.type.find("slider")!=std::string::npos && n.active){
-        // Cannot access value generically without knowing pointer; leave default
+    n.container_id = g_uidump.scrollable_ancestor_stack.empty() ? 0 : g_uidump.scrollable_ancestor_stack.back();
+    
+    // Set action affordances based on type
+    if (n.type == "button" || n.type == "selectable" || n.type == "header") {
+        n.actions = {"click"};
+    } else if (n.type == "checkbox") {
+        n.actions = {"click"};
+    } else if (n.type == "slider" || n.type == "drag") {
+        n.actions = {"drag", "click"};
+        // Set track range for sliders
+        n.track_from = ImVec2(n.min.x, (n.min.y + n.max.y) * 0.5f);
+        n.track_to = ImVec2(n.max.x, (n.min.y + n.max.y) * 0.5f);
+    } else if (n.type == "input_text" || n.type == "input_int" || n.type == "input_float") {
+        n.actions = {"type"};
+    } else if (n.type == "combo") {
+        n.actions = {"open", "select"};
     }
+    
+    // Set action point (center of bounding box)
+    n.action_point = ImVec2((n.min.x + n.max.x) * 0.5f, (n.min.y + n.max.y) * 0.5f);
+    
     g_uidump.cur.nodes.push_back(n);
 }
 
 // output ---------------------------------------------------------------
 
 static void write_json(const char* path, const UiDumpFrame& fr){
-    std::ofstream f(path);
-    f << std::fixed;
-    f << "{\n";
-    f << "  \"frame\": " << fr.frame_index << ",\n";
-    f << "  \"display\": ["<<fr.display.x<<","<<fr.display.y<<"],\n";
-    f << "  \"containers\": {";
+    // First, write to stringstream to get the raw JSON
+    std::ostringstream ss;
+    ss << std::fixed << std::setprecision(6);
+    ss << "{\n";
+    ss << "  \"ui_version\": \"" << fr.ui_version << "\",\n";
+    ss << "  \"app_version\": \"" << fr.app_version << "\",\n";
+    ss << "  \"frame\": " << fr.frame_index << ",\n";
+    ss << "  \"frame_ts\": " << fr.frame_ts << ",\n";
+    ss << "  \"display\": [" << fr.display.x << "," << fr.display.y << "],\n";
+    ss << "  \"input_event\": {\"type\":\"" << fr.input_event_type << "\",\"data\":" << fr.input_event_data << "},\n";
+    ss << "  \"containers\": {";
     bool first=true;
     for(auto& kv: fr.containers){
-        if(!first) f<<","; first=false;
+        if(!first) ss<<","; first=false;
         auto id = kv.first; auto si = kv.second;
-        f << "\n    \""<<id<<"\": {"
+        ss << "\n    \""<<id<<"\": {"
           << "\"scroll\":["<<si.scroll.x<<","<<si.scroll.y<<"],"
           << "\"scroll_max\":["<<si.scroll_max.x<<","<<si.scroll_max.y<<"],"
           << "\"content\":["<<si.content.x<<","<<si.content.y<<"],"
           << "\"size\":["<<si.size.x<<","<<si.size.y<<"]}";
     }
-    if(!first) f<<"\n";
-    f << "  },\n";
-    f << "  \"nodes\": [\n";
+    if(!first) ss<<"\n";
+    ss << "  },\n";
+    ss << "  \"nodes\": [\n";
     for(size_t i=0;i<fr.nodes.size();++i){
         auto &n = fr.nodes[i];
         float x=n.min.x, y=n.min.y, w=n.max.x-n.min.x, h=n.max.y-n.min.y;
-        f << "    {\"id\":"<<n.id<<",\"parent_id\":"<<n.parent_id
-          << ",\"type\":\""<<n.type<<"\",\"label\":\""<<n.label<<"\",";
-        f << "\"bbox\":["<<x<<","<<y<<","<<w<<","<<h<<"],";
-        f << "\"visible\":"<<(n.visible?"true":"false")<<",";
-        f << "\"enabled\":"<<(n.enabled?"true":"false")<<",";
-        f << "\"hovered\":"<<(n.hovered?"true":"false")<<",";
-        f << "\"active\":"<<(n.active?"true":"false")<<",";
-        f << "\"focused\":"<<(n.focused?"true":"false")<<",";
-        f << "\"container_id\":"<<n.container_id;
+        ss << "    {\"id\":"<<n.id<<",\"type\":\""<<n.type<<"\"";
+        
+        // Labels
+        if (!n.label_raw.empty()) {
+            ss << ",\"label_raw\":\""<<n.label_raw<<"\"";
+        }
+        if (!n.label_norm.empty() && n.label_norm != n.label_raw) {
+            ss << ",\"label_norm\":\""<<n.label_norm<<"\"";
+        }
+        if (!n.aliases.empty()) {
+            ss << ",\"aliases\":[";
+            for(size_t ai=0; ai<n.aliases.size(); ++ai) {
+                if(ai) ss<<",";
+                ss<<"\""<<n.aliases[ai]<<"\"";
+            }
+            ss << "]";
+        }
+        
+        ss << ",\"bbox\":["<<x<<","<<y<<","<<w<<","<<h<<"]";
+        ss << ",\"container_id\":"<<n.container_id;
+        if (n.owner_id != 0) {
+            ss << ",\"owner_id\":"<<n.owner_id;
+        }
+        if (n.z_index != 0) {
+            ss << ",\"z_index\":"<<n.z_index;
+        }
+        
+        // Visibility and offscreen reasoning
+        ss << ",\"onscreen\":"<<(n.onscreen?"true":"false");
+        ss << ",\"visible_area\":"<<n.visible_area;
+        if (!n.offscreen_reason.empty()) {
+            ss << ",\"offscreen_reason\":\""<<n.offscreen_reason<<"\"";
+        }
+        
+        // State fields for headers/trees
         if(n.state_open || n.state_selected){
-            f << ",\"state_open\":"<<(n.state_open?"true":"false")
+            ss << ",\"state_open\":"<<(n.state_open?"true":"false")
               << ",\"state_selected\":"<<(n.state_selected?"true":"false");
         }
-        if(n.type.find("slider")!=std::string::npos){
-            f << ",\"value\":"<<n.value;
+        
+        // Value fields for controls
+        if(n.checked){
+            ss << ",\"checked\":"<<(n.checked?"true":"false");
         }
-        if(n.type=="checkbox"||n.type=="radio"){
-            f << ",\"checked\":"<<(n.checked?"true":"false");
+        if(n.value != 0.0 || n.vmin != 0.0 || n.vmax != 0.0){
+            ss << ",\"value\":"<<n.value;
+            if (n.vmin != 0.0 || n.vmax != 0.0) {
+                ss << ",\"vmin\":"<<n.vmin<<",\"vmax\":"<<n.vmax;
+            }
+            if (n.vstep != 0.0) {
+                ss << ",\"vstep\":"<<n.vstep;
+            }
+        }
+        if (!n.text_value.empty()) {
+            ss << ",\"text_value\":\""<<n.text_value<<"\"";
+        }
+        if (!n.selected_value.empty()) {
+            ss << ",\"selected_value\":\""<<n.selected_value<<"\"";
         }
         if(!n.options.empty()){
-            f << ",\"options\":[";
-            for(size_t oi=0;oi<n.options.size();++oi){ if(oi) f<<","; f<<"\""<<n.options[oi]<<"\""; }
-            f << "]";
-            f << ",\"selected_index\":"<<n.selected_index;
+            ss << ",\"options\":[";
+            for(size_t oi=0;oi<n.options.size();++oi){ 
+                if(oi) ss<<","; 
+                ss<<"\""<<n.options[oi]<<"\""; 
+            }
+            ss << "]";
         }
-        f << "}";
-        if(i+1<fr.nodes.size()) f<<",";
-        f<<"\n";
+        if (!n.drag_axis.empty()) {
+            ss << ",\"drag_axis\":\""<<n.drag_axis<<"\"";
+        }
+        if (n.disabled) {
+            ss << ",\"disabled\":true";
+        }
+        
+        // Action affordances
+        if (!n.actions.empty()) {
+            ss << ",\"actions\":[";
+            for(size_t ai=0; ai<n.actions.size(); ++ai) {
+                if(ai) ss<<",";
+                ss<<"\""<<n.actions[ai]<<"\"";
+            }
+            ss << "]";
+            ss << ",\"action_point\":["<<n.action_point.x<<","<<n.action_point.y<<"]";
+            if (n.track_from.x != 0.0f || n.track_from.y != 0.0f || n.track_to.x != 0.0f || n.track_to.y != 0.0f) {
+                ss << ",\"track_from\":["<<n.track_from.x<<","<<n.track_from.y<<"]";
+                ss << ",\"track_to\":["<<n.track_to.x<<","<<n.track_to.y<<"]";
+            }
+        }
+        
+        ss << "}";
+        if(i+1<fr.nodes.size()) ss<<",";
+        ss<<"\n";
     }
-    f << "  ]\n}\n";
+    ss << "  ]\n}\n";
+    
+    // Now normalize the JSON
+    std::string raw_json = ss.str();
+    std::string normalized_json;
+    
+    try {
+        UIJsonNormalizer normalizer;
+        normalized_json = normalizer.normalize_json_string(raw_json);
+    } catch (const std::exception& e) {
+        std::cerr << "JSON normalization failed: " << e.what() << std::endl;
+        normalized_json = raw_json; // Fall back to original JSON
+    }
+    
+    // Write the normalized JSON to file
+    std::ofstream f(path);
+    f << normalized_json;
 }
 
 void ui_dump_end_frame_and_write(const char* outdir, bool with_screenshot){
@@ -262,7 +760,7 @@ void ui_dump_end_frame_and_write(const char* outdir, bool with_screenshot){
             if(!w) continue;
             uint64_t wid = widen(w->ID);
             if(!have.count(wid)){
-                UiNode wn; wn.id=wid; wn.parent_id=0; wn.type="window.auto"; wn.label=w->Name?w->Name:""; wn.min=w->OuterRectClipped.Min; wn.max=w->OuterRectClipped.Max; wn.visible = !w->Hidden; wn.enabled=true; wn.container_id=0; g_uidump.cur.nodes.push_back(wn);
+                UiNode wn; wn.id=wid; wn.parent_id=0; wn.type="window.auto"; wn.label_raw=w->Name?w->Name:""; wn.label_norm=normalize_label(wn.label_raw); wn.min=w->OuterRectClipped.Min; wn.max=w->OuterRectClipped.Max; wn.visible = !w->Hidden; wn.enabled=true; wn.container_id=0; g_uidump.cur.nodes.push_back(wn);
             }
             // Vertical scrollbar approximation
             if(w->ScrollbarY){
@@ -301,6 +799,9 @@ void ui_dump_end_frame_and_write(const char* outdir, bool with_screenshot){
     }
     
     last_write_time = current_time;
+    
+    // Apply v1.2.0 normalization pass before writing
+    normalize_frame_post_emit(g_uidump.cur);
     
     char base[512];
     snprintf(base,sizeof(base),"%s/ui_%s_%06d", outdir, timestamp().c_str(), g_uidump.cur.frame_index);
@@ -413,7 +914,8 @@ void ui_dump_on_header(const char* label, bool open){
     n.id = widen(header_id);
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "header";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = sanitize(label ? label : "");
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     n.visible = ImGui::IsItemVisible();
@@ -437,7 +939,8 @@ void ui_dump_on_tabitem(const char* label, bool selected){
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "tabitem";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = sanitize(label ? label : "");
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     n.visible = ImGui::IsItemVisible();
@@ -464,7 +967,7 @@ void ui_dump_on_header_end_on_pop()
     }
 }
 
-void ui_dump_on_begin_popup(const char* label)
+void ui_dump_on_begin_popup(const char* label, uint64_t owner_id)
 {
     if(!g_uidump.enabled) return;
     ImGuiWindow* w = ImGui::GetCurrentWindow();
@@ -472,11 +975,13 @@ void ui_dump_on_begin_popup(const char* label)
     node.id = widen(w->ID);
     node.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     node.type = "popup";
-    node.label = sanitize(label ? label : w->Name);
+    node.label_raw = sanitize(label ? label : w->Name);
+    node.label_norm = normalize_label(node.label_raw);
     node.min = w->OuterRectClipped.Min;
     node.max = w->OuterRectClipped.Max;
     node.visible = true;
     node.container_id = g_uidump.current_container;
+    node.owner_id = owner_id;
     g_uidump.cur.nodes.push_back(node);
     g_uidump.parent_stack.push_back(node.id);
 }
@@ -495,7 +1000,8 @@ void ui_dump_combo_begin(const char* label, const char* preview)
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "combo";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = sanitize(label ? label : "");
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     n.visible = ImGui::IsItemVisible();
@@ -515,7 +1021,8 @@ void ui_dump_combo_option(const char* option_label, bool selected)
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "selectable";
-    n.label = sanitize(option_label ? option_label : "");
+    n.label_raw = sanitize(option_label ? option_label : "");
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     n.visible = ImGui::IsItemVisible();
@@ -542,7 +1049,8 @@ void ui_dump_combo_closed(const char* label, const char* preview)
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "combo_closed";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = sanitize(label ? label : "");
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     n.visible = ImGui::IsItemVisible();
@@ -578,7 +1086,8 @@ void ui_dump_table_begin(const char* label, int columns)
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "table";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = sanitize(label ? label : "");
+    n.label_norm = normalize_label(n.label_raw);
     ImGuiTable* table = ImGui::GetCurrentTable();
     if(table) {
         n.min = {table->OuterRect.Min.x, table->OuterRect.Min.y};
@@ -598,7 +1107,8 @@ void ui_dump_table_header(const char* label)
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "table_header";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = sanitize(label ? label : "");
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     n.visible = ImGui::IsItemVisible();
@@ -623,7 +1133,8 @@ void ui_dump_table_cell(const char* content, bool editable)
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = editable ? "table_cell_editable" : "table_cell";
-    n.label = sanitize(content ? content : "");
+    n.label_raw = sanitize(content ? content : "");
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     n.visible = ImGui::IsItemVisible();
@@ -658,7 +1169,8 @@ void ui_dump_tabbar_begin(const char* label)
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "tabbar";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = sanitize(label ? label : "");
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     n.visible = true;
@@ -682,7 +1194,8 @@ void ui_dump_progress_bar(const char* label, float fraction)
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "progress";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = sanitize(label ? label : "");
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     n.visible = ImGui::IsItemVisible();
@@ -701,7 +1214,8 @@ void ui_dump_input_text(const char* label, const char* text)
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "input_text";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = sanitize(label ? label : "");
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     n.visible = ImGui::IsItemVisible();
@@ -725,7 +1239,9 @@ void ui_dump_custom_interactive(const char* label, const char* type)
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = type ? type : "custom";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = sanitize(label ? label : "");
+    n.label_norm = normalize_label(n.label_raw);
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     n.visible = ImGui::IsItemVisible();
@@ -749,7 +1265,9 @@ void ui_dump_on_item_with_state(const char* type, const char* label,
     n.id = widen(ImGui::GetItemID());
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = type ? type : "item";
-    n.label = sanitize(label ? label : "");
+    n.label_raw = sanitize(label ? label : "");
+    n.label_norm = normalize_label(n.label_raw);
+    n.label_norm = normalize_label(n.label_raw);
     n.min = ImGui::GetItemRectMin();
     n.max = ImGui::GetItemRectMax();
     const ImGuiItemStatusFlags st = ImGui::GetItemStatusFlags();
@@ -761,7 +1279,9 @@ void ui_dump_on_item_with_state(const char* type, const char* label,
     n.container_id = g_uidump.current_container;
     n.checked = checked;
     n.value = value;
-    n.selected_index = selected_index;
+    if (selected_index >= 0 && selected_index < options.size()) {
+        n.selected_value = options[selected_index];
+    }
     n.options = options;
     g_uidump.cur.nodes.push_back(n);
 }
@@ -782,7 +1302,9 @@ void ui_dump_on_text(const char* text)
     n.id = widen(text_id);
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "text";
-    n.label = sanitize(text ? text : "");
+    n.label_raw = sanitize(text ? text : "");
+    n.label_norm = normalize_label(n.label_raw);
+    n.label_norm = normalize_label(n.label_raw);
     n.min = cursor_pos;
     n.max = ImVec2(cursor_pos.x + text_size.x, cursor_pos.y + text_size.y);
     n.visible = true;
@@ -814,7 +1336,8 @@ void ui_dump_on_label_text(const char* label, const char* text)
     n.id = widen(text_id);
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "label";
-    n.label = sanitize(label ? label : (text ? text : ""));
+    n.label_raw = sanitize(label ? label : (text ? text : ""));
+    n.label_norm = normalize_label(n.label_raw);
     n.min = min;
     n.max = max;
     n.visible = true;
@@ -838,7 +1361,9 @@ void ui_dump_synthetic_text(const char* text, const ImVec2& min, const ImVec2& m
     n.id = widen(text_id);
     n.parent_id = g_uidump.parent_stack.empty() ? 0 : g_uidump.parent_stack.back();
     n.type = "synthetic_text";
-    n.label = sanitize(text ? text : "");
+    n.label_raw = sanitize(text ? text : "");
+    n.label_norm = normalize_label(n.label_raw);
+    n.label_norm = normalize_label(n.label_raw);
     n.min = min;
     n.max = max;
     n.visible = true;
@@ -1166,7 +1691,7 @@ void ui_dump_comprehensive_validation() {
     // Check state tracking
     int stateful_elements = 0;
     for (const auto& node : g_uidump.cur.nodes) {
-        if (node.checked || node.value != 0.0f || node.selected_index != -1 || 
+        if (node.checked || node.value != 0.0f || !node.selected_value.empty() || 
             node.state_open || node.state_selected) {
             stateful_elements++;
         }

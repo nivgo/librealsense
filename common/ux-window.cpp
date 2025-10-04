@@ -36,7 +36,7 @@
 #ifdef RS_DUMP_UI
 extern void ui_dump_begin_frame(int frame_index);
 extern void ui_dump_end_frame_and_write(const char* outdir, bool with_screenshot);
-extern void ui_dump_on_begin_window(const char* title, unsigned int id, bool scrollable);
+extern void ui_dump_on_begin_window(const char* title, ImGuiID id, bool scrollable, uint64_t owner_id);
 extern void ui_dump_on_end_window();
 #endif
 
@@ -565,7 +565,7 @@ namespace rs2
         ImGui::Begin("Splash Screen Banner", nullptr, flags);
 
 #ifdef RS_DUMP_UI
-        ui_dump_on_begin_window("Splash Screen Banner", ImGui::GetCurrentWindow()->ID, true);
+        ui_dump_on_begin_window("Splash Screen Banner", ImGui::GetCurrentWindow()->ID, true, 0);
 #endif
 
         ImGui::PushFont(_font_18);

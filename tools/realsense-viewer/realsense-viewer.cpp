@@ -23,6 +23,7 @@
 #include <imgui_internal.h>
 
 #include "rs_imgui.h"
+#include "../../common/ui_instrumentation.h"
 
 #ifdef RS_API
 extern void ui_actions_start(unsigned short port);
@@ -418,7 +419,7 @@ int main(int argc, const char** argv) try
         ImGui::SetNextWindowSize({ viewer_model.panel_width, viewer_model.panel_y });
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        RS_Begin("Add Device Panel", nullptr, flags);
+        UI_Begin("Add Device Panel", nullptr, flags);
 
         ImGui::PushFont(window.get_large_font());
         ImGui::PushStyleColor(ImGuiCol_PopupBg, from_rgba(230, 230, 230, 255));
@@ -476,7 +477,7 @@ int main(int argc, const char** argv) try
         ImVec2 popup_select_size = { viewer_model.panel_width, popup_select_h };
         ImGui::SetNextWindowSize( popup_select_size );
 
-        if (RS_BeginPopup("select"))
+        if (UI_BeginPopup("select"))
         {
             ImGui::PushStyleColor(ImGuiCol_Text, dark_grey);
             ImGui::Columns(1, "DevicesList", false);
@@ -530,7 +531,7 @@ int main(int argc, const char** argv) try
             ImGui::NextColumn();
 
             ImGui::PopStyleColor();
-            RS_EndPopup();
+            UI_EndPopup();
             }
         ImGui::PopFont();
         ImGui::PopStyleVar();
@@ -539,7 +540,7 @@ int main(int argc, const char** argv) try
         ImGui::PopStyleColor();
         ImGui::PopFont();
 
-        RS_End();
+        UI_End();
         ImGui::PopStyleVar();
 
 
@@ -560,7 +561,7 @@ int main(int argc, const char** argv) try
         // *********************
         // Creating window menus
         // *********************
-        RS_Begin("Control Panel", nullptr, flags | ImGuiWindowFlags_AlwaysVerticalScrollbar);
+        UI_Begin("Control Panel", nullptr, flags | ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
         if (device_models->size() > 0)
         {
@@ -639,7 +640,7 @@ int main(int argc, const char** argv) try
             viewer_model.show_no_device_overlay(window.get_large_font(), 50, static_cast<int>(viewer_model.panel_y + 50));
         }
 
-        RS_End();
+        UI_End();
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();
 
