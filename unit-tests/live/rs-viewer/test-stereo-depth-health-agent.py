@@ -16,6 +16,7 @@ import time
 import platform
 
 #test:device each(D455) 
+#test:donotrun:!agent-test
 
 with test.closure("Stereo depth health scenario via agent server"):
     # Setup CI environment variables
@@ -26,8 +27,8 @@ with test.closure("Stereo depth health scenario via agent server"):
     import shutil
     exe_name = 'realsense-viewer.exe' if platform.system() == 'Windows' else 'realsense-viewer'
     
-    # Try repo finder first, then fallback to PATH (like stable version)
-    rs_viewer_exe = repo.find_built_exe('tools/realsense-viewer', exe_name)
+    # Try repo finder first (without .exe extension, let repo.find_built_exe handle platform-specific naming)
+    rs_viewer_exe = repo.find_built_exe('tools/realsense-viewer', 'realsense-viewer')
     if not rs_viewer_exe:
         rs_viewer_exe = shutil.which(exe_name)
     
@@ -41,8 +42,6 @@ with test.closure("Stereo depth health scenario via agent server"):
         log.d('sys.path=\n    ' + '\n    '.join(sys.path))
     else:
         log.d(f'Found realsense-viewer at: {rs_viewer_exe}')
-    
-    log.d(f'Found realsense-viewer at: {rs_viewer_exe}')
     
     # Initialize components
     viewer_mgr = ViewerProcessManager(exe_path=rs_viewer_exe)
