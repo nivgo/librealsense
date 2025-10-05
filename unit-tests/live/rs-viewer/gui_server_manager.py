@@ -6,7 +6,7 @@ import platform
 import signal
 import sys
 import requests
-from test_constants import TestDefaults
+from test_constants import TestDefaults, TestTiming, WindowSetupMode
 
 def setup_ci_environment():
     """Setup required environment variables for Jenkins/CI environment"""
@@ -32,6 +32,11 @@ class GuiServerManager:
         session = requests.Session()
         session.trust_env = False
         session.proxies = {"http": None, "https": None}
+        # Add headers for JSON requests
+        session.headers.update({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        })
         return session
     
     def start(self, timeout=12):
@@ -65,7 +70,8 @@ class GuiServerManager:
             if logger_func:
                 logger_func(f"Executing GUI action: {action}")
             
-            response = requests.post(
+            # Use the same session with consistent configuration
+            response = self.session.post(
                 f'http://localhost:{self.port}/action',
                 json={'type': action},
                 timeout=10
@@ -118,6 +124,38 @@ class GuiServerManager:
             s.close()
         return ip
     
+    def setup_viewer_window(self, mode=WindowSetupMode.FULLSCREEN, logger_func=None):
+        """Setup the viewer window with different modes based on test requirements"""
+        if logger_func:
+            logger_func(f'Setting up viewer window (mode: {mode})...')
+        
+        success_count = 0
+        total_actions = 0
+        
+        # Always try to focus first - this is most important
+        total_actions += 1
+        if self.control_viewer('focus_viewer', logger_func=logger_func):
+            success_count += 1
+        time.sleep(TestTiming.WINDOW_FOCUS_DELAY)
+        
+        # Maximize only if requested
+        if mode in [WindowSetupMode.STANDARD, WindowSetupMode.FULLSCREEN]:
+            total_actions += 1
+            if self.control_viewer('maximize_viewer', logger_func=logger_func):
+                success_count += 1
+            time.sleep(TestTiming.WINDOW_MAXIMIZE_DELAY)
+        
+        # Fullscreen only for agent tests that need maximum screen real estate
+        if mode == WindowSetupMode.FULLSCREEN:
+            total_actions += 1
+            if self.control_viewer('fullscreen', logger_func=logger_func):
+                success_count += 1
+        
+        if logger_func:
+            logger_func(f'Viewer window setup completed ({success_count}/{total_actions} actions succeeded)')
+        
+        return success_count > 0  # Return True if at least focus worked
+
     def cleanup(self):
         """Clean up GUI server process"""
         if self.process and self.process.poll() is None:

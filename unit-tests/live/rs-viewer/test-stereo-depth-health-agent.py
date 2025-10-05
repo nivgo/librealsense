@@ -11,9 +11,11 @@ from rspy import test, log, repo
 from agent_server_client import AgentServerClient
 from viewer_process_manager import ViewerProcessManager 
 from gui_server_manager import GuiServerManager, setup_ci_environment
-from test_constants import HttpStatusCode, TestTiming
+from test_constants import HttpStatusCode, TestTiming, WindowSetupMode
 import time
 import platform
+
+#test:device each(D455) 
 
 with test.closure("Stereo depth health scenario via agent server"):
     # Setup CI environment variables
@@ -56,13 +58,7 @@ with test.closure("Stereo depth health scenario via agent server"):
         log.i('realsense-viewer started with PID:', viewer_process.pid)
 
         # 3) Setup viewer window
-        log.i('Setting up viewer window...')
-        gui_server.control_viewer('focus_viewer', logger_func=log.i)
-        time.sleep(TestTiming.WINDOW_FOCUS_DELAY)
-        gui_server.control_viewer('maximize_viewer', logger_func=log.i)
-        time.sleep(TestTiming.WINDOW_MAXIMIZE_DELAY)
-        gui_server.control_viewer('fullscreen', logger_func=log.i)
-        log.i('Viewer window setup completed')
+        gui_server.setup_viewer_window(mode=WindowSetupMode.FULLSCREEN, logger_func=log.i)
 
         # 4) Agent health check - is agent responding
         health_body, health_code = agent_client.health_check()

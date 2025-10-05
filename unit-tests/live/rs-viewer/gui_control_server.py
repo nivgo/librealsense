@@ -81,6 +81,30 @@ def _manual_click(pyauto, x: int, y: int, button: str = "left", double: bool = F
 
 app = Flask(__name__)
 
+# Add CORS support for cross-origin requests
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+@app.route('/action', methods=['OPTIONS'])
+def action_options():
+    """Handle preflight OPTIONS requests"""
+    return '', 200
+
+@app.get("/test")
+def test_endpoint():
+    """Simple test endpoint"""
+    return jsonify({"test": "ok", "platform": platform.system()})
+
+@app.post("/test")
+def test_post():
+    """Test POST endpoint"""
+    data = request.get_json()
+    return jsonify({"received": data, "method": "POST"})
+
 @app.get("/healthz")
 def healthz():
     info = {
@@ -90,7 +114,14 @@ def healthz():
         "display": _has_display(),
         "pyautogui": _load_pyautogui() is not None,
         "time": int(time.time()),
+        "display_env": os.environ.get('DISPLAY', 'NOT_SET'),
     }
+    
+    # Check for available tools
+    if platform.system() == "Linux":
+        info["xdotool_available"] = bool(shutil.which("xdotool"))
+        info["wmctrl_available"] = bool(shutil.which("wmctrl"))
+    
     return jsonify(info)
 
 @app.get("/screenshot")
@@ -102,6 +133,7 @@ def screenshot():
 def action():
     data = request.json or {}
     atype = data.get("type")
+    
     if not atype:
         return jsonify({"success": False, "error": "Missing action type"}), 400
 
@@ -227,14 +259,14 @@ def action():
             if success_methods:
                 return jsonify({"success": True, "action": "fullscreen", "methods": success_methods})
             else:
-                return jsonify({"success": False, "error": "All fullscreen methods failed. Install wmctrl/xdotool."})
+                return jsonify({"success": False, "error": "All fullscreen methods failed. Install wmctrl/xdotool."}), 200  # Changed from error status
         
         # Windows/default: just F11
         try:
             pyauto.press("f11")
             return jsonify({"success": True, "action": "fullscreen"})
         except Exception as e:
-            return jsonify({"success": False, "error": f"fullscreen failed: {e}"}), 500
+            return jsonify({"success": False, "error": f"fullscreen failed: {e}"}), 200  # Changed from 500
 
     if atype == "maximize_viewer":
         # Best-effort on Linux with wmctrl; Windows with pyautogui
@@ -258,8 +290,9 @@ def action():
                 if success:
                     return jsonify({"success": True, "action": "maximize_viewer", "pattern": used_pattern})
                 else:
-                    return jsonify({"success": False, "error": "wmctrl failed to find RealSense Viewer window"}), 404
-            return jsonify({"success": False, "error": "wmctrl not installed"}), 501
+                    return jsonify({"success": False, "error": "wmctrl failed to find RealSense Viewer window"}), 200  # Changed from 404
+            else:
+                return jsonify({"success": False, "error": "wmctrl not installed - cannot maximize on Linux"}), 200  # Changed from 501
         elif platform.system() == "Windows":
             pyauto = _load_pyautogui()
             if pyauto:
@@ -281,12 +314,13 @@ def action():
                         window.maximize()
                         return jsonify({"success": True, "action": "maximize_viewer", "window_title": window.title})
                     else:
-                        return jsonify({"success": False, "error": "RealSense Viewer window not found"}), 404
+                        return jsonify({"success": False, "error": "RealSense Viewer window not found"}), 200  # Changed from 404
                 except Exception as e:
-                    return jsonify({"success": False, "error": f"maximize failed: {e}"}), 500
+                    return jsonify({"success": False, "error": f"maximize failed: {e}"}), 200  # Changed from 500
             else:
-                return jsonify({"success": False, "error": "pyautogui not available"}), 501
-        return jsonify({"success": False, "error": "maximize_viewer not implemented for this platform"}), 400
+                return jsonify({"success": False, "error": "pyautogui not available"}), 200  # Changed from 501
+        else:
+            return jsonify({"success": False, "error": "maximize_viewer not implemented for this platform"}), 200  # Changed from 400
 
     if atype == "focus_viewer":
         if platform.system() == "Linux":
@@ -309,8 +343,9 @@ def action():
                 if success:
                     return jsonify({"success": True, "action": "focus_viewer", "pattern": used_pattern})
                 else:
-                    return jsonify({"success": False, "error": "xdotool failed to find RealSense Viewer window"}), 404
-            return jsonify({"success": False, "error": "xdotool not installed"}), 501
+                    return jsonify({"success": False, "error": "xdotool failed to find RealSense Viewer window"}), 200  # Changed from 404
+            else:
+                return jsonify({"success": False, "error": "xdotool not installed - cannot focus viewer on Linux"}), 200  # Changed from 501
         elif platform.system() == "Windows":
             pyauto = _load_pyautogui()
             if pyauto:
@@ -330,12 +365,13 @@ def action():
                         window.activate()
                         return jsonify({"success": True, "action": "focus_viewer", "window_title": window.title})
                     else:
-                        return jsonify({"success": False, "error": "RealSense Viewer window not found"}), 404
+                        return jsonify({"success": False, "error": "RealSense Viewer window not found"}), 200  # Changed from 404
                 except Exception as e:
-                    return jsonify({"success": False, "error": f"focus failed: {e}"}), 500
+                    return jsonify({"success": False, "error": f"focus failed: {e}"}), 200  # Changed from 500
             else:
-                return jsonify({"success": False, "error": "pyautogui not available"}), 501
-        return jsonify({"success": False, "error": "focus_viewer not implemented for this platform"}), 400
+                return jsonify({"success": False, "error": "pyautogui not available"}), 200  # Changed from 501
+        else:
+            return jsonify({"success": False, "error": "focus_viewer not implemented for this platform"}), 200  # Changed from 400
 
     return jsonify({"success": False, "error": f"Unknown action: {atype}"}), 400
 

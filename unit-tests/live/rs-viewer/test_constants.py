@@ -23,6 +23,12 @@ class TestTiming(IntEnum):
     VIEWER_STARTUP_DELAY_WINDOWS = 8
     VIEWER_ADDITIONAL_WAIT = 3
 
+class WindowSetupMode:
+    """Window setup modes for different test scenarios"""
+    MINIMAL = "minimal"          # Just focus the window 
+    STANDARD = "standard"        # Focus + maximize
+    FULLSCREEN = "fullscreen"    # Focus + maximize + fullscreen (for agent tests)
+
 class TestDefaults:
     """Default configuration values for tests"""
     GUI_SERVER_PORT = 5001
@@ -33,5 +39,5 @@ class TestDefaults:
     AGENT_BYPASS_PROXY = True  # Enable proxy bypass by default for agent server
     
     # CI/Jenkins environment configuration
-    CI_DISPLAY = ':0'  # X11 display for CI environments
+    CI_DISPLAY = ':1001'  # X11 display for CI environments
     CI_NO_PROXY_HOST = '143.185.122.14'  # Host to bypass proxy for the agent server
