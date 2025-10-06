@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Cross-platform GUI control server for agent/test integration (headless-safe)
 from flask import Flask, request, send_file, jsonify
-import argparse, os, platform, time, io, shutil, subprocess
+import argparse, os, platform, time, io, shutil, subprocess, sys
 
 def _has_display() -> bool:
     # Windows/macOS generally OK; Linux needs DISPLAY
@@ -27,23 +27,48 @@ def _load_pyautogui():
 
 def _screenshot_bytes():
     """Return PNG bytes of current screen; MSS fallback works headless."""
+    print(f"[GUI_SERVER_DEBUG] _screenshot_bytes called")
+    
     pyauto = _load_pyautogui()
+    print(f"[GUI_SERVER_DEBUG] PyAutoGUI loaded: {pyauto is not None}")
+    
     if pyauto is not None:
-        img = pyauto.screenshot()
-        buf = io.BytesIO()
-        img.save(buf, format='PNG')
-        buf.seek(0)
-        return buf
+        try:
+            print(f"[GUI_SERVER_DEBUG] Attempting PyAutoGUI screenshot...")
+            img = pyauto.screenshot()
+            print(f"[GUI_SERVER_DEBUG] PyAutoGUI screenshot successful: {img.size}")
+            buf = io.BytesIO()
+            img.save(buf, format='PNG')
+            buf.seek(0)
+            print(f"[GUI_SERVER_DEBUG] PyAutoGUI buffer created: {len(buf.getvalue())} bytes")
+            return buf
+        except Exception as e:
+            print(f"[GUI_SERVER_DEBUG] PyAutoGUI screenshot failed: {e}")
+            import traceback
+            traceback.print_exc()
 
     # Fallback to mss (headless-friendly)
-    import mss, numpy as np, cv2  # type: ignore
-    with mss.mss() as sct:
-        monitor = sct.monitors[1]
-        shot = np.array(sct.grab(monitor))[:, :, :3]
-        ok, enc = cv2.imencode(".png", shot)
-        if not ok:
-            raise RuntimeError("Failed to encode screenshot")
-        return io.BytesIO(enc.tobytes())
+    print(f"[GUI_SERVER_DEBUG] Using MSS fallback...")
+    try:
+        import mss, numpy as np, cv2  # type: ignore
+        print(f"[GUI_SERVER_DEBUG] MSS libraries imported successfully")
+        
+        with mss.mss() as sct:
+            monitor = sct.monitors[1]
+            print(f"[GUI_SERVER_DEBUG] Monitor info: {monitor}")
+            shot = np.array(sct.grab(monitor))[:, :, :3]
+            print(f"[GUI_SERVER_DEBUG] MSS screenshot captured: {shot.shape}")
+            ok, enc = cv2.imencode(".png", shot)
+            if not ok:
+                print(f"[GUI_SERVER_DEBUG] cv2.imencode failed!")
+                raise RuntimeError("Failed to encode screenshot")
+            print(f"[GUI_SERVER_DEBUG] MSS screenshot encoded: {len(enc.tobytes())} bytes")
+            return io.BytesIO(enc.tobytes())
+    except Exception as e:
+        print(f"[GUI_SERVER_DEBUG] MSS fallback failed: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 def _wiggle_cursor_with_xdotool(x: int, y: int):
     """Best-effort cursor wiggle via xdotool to make the target obvious."""
@@ -126,8 +151,28 @@ def healthz():
 
 @app.get("/screenshot")
 def screenshot():
-    buf = _screenshot_bytes()
-    return send_file(buf, mimetype='image/png')
+    try:
+        print(f"[GUI_SERVER_DEBUG] Screenshot endpoint called")
+        print(f"[GUI_SERVER_DEBUG] Request headers: {dict(request.headers)}")
+        print(f"[GUI_SERVER_DEBUG] Client IP: {request.remote_addr}")
+        
+        buf = _screenshot_bytes()
+        
+        if buf is None:
+            print(f"[GUI_SERVER_DEBUG] _screenshot_bytes returned None!")
+            return jsonify({"error": "Screenshot capture failed"}), 500
+            
+        content_length = len(buf.getvalue())
+        buf.seek(0)  # Reset buffer position
+        print(f"[GUI_SERVER_DEBUG] Screenshot successful, returning {content_length} bytes")
+        
+        return send_file(buf, mimetype='image/png')
+        
+    except Exception as e:
+        print(f"[GUI_SERVER_DEBUG] Screenshot endpoint exception: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Screenshot failed: {str(e)}"}), 500
 
 @app.post("/action")
 def action():
@@ -379,4 +424,43 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=5001)
     args = parser.parse_args()
+    
+    print(f"[GUI_SERVER_DEBUG] Starting GUI Control Server")
+    print(f"[GUI_SERVER_DEBUG] Port: {args.port}")
+    print(f"[GUI_SERVER_DEBUG] Platform: {platform.system()}")
+    print(f"[GUI_SERVER_DEBUG] Python: {sys.version}")
+    print(f"[GUI_SERVER_DEBUG] DISPLAY: {os.environ.get('DISPLAY', 'NOT_SET')}")
+    print(f"[GUI_SERVER_DEBUG] Working directory: {os.getcwd()}")
+    
+    # Test dependencies immediately at startup
+    print(f"[GUI_SERVER_DEBUG] Testing dependencies...")
+    try:
+        pyauto = _load_pyautogui()
+        print(f"[GUI_SERVER_DEBUG] PyAutoGUI: {'Available' if pyauto else 'Not available'}")
+        
+        import mss
+        print(f"[GUI_SERVER_DEBUG] MSS: Available")
+        
+        import cv2
+        print(f"[GUI_SERVER_DEBUG] OpenCV: Available")
+        
+        # Test screenshot at startup
+        print(f"[GUI_SERVER_DEBUG] Testing screenshot at startup...")
+        try:
+            test_buf = _screenshot_bytes()
+            if test_buf:
+                print(f"[GUI_SERVER_DEBUG] Startup screenshot test: SUCCESS ({len(test_buf.getvalue())} bytes)")
+            else:
+                print(f"[GUI_SERVER_DEBUG] Startup screenshot test: FAILED (returned None)")
+        except Exception as screenshot_test_error:
+            print(f"[GUI_SERVER_DEBUG] Startup screenshot test: FAILED ({screenshot_test_error})")
+            import traceback
+            traceback.print_exc()
+            
+    except Exception as e:
+        print(f"[GUI_SERVER_DEBUG] Dependency test failed: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    print(f"[GUI_SERVER_DEBUG] Starting Flask app on 0.0.0.0:{args.port}")
     app.run(host="0.0.0.0", port=args.port)

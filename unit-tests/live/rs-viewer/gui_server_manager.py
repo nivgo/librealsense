@@ -46,22 +46,41 @@ class GuiServerManager:
             os.path.join(os.path.dirname(__file__), 'gui_control_server.py'),
             '--port', str(self.port),
         ]
+        
+        print(f"[GUI_MANAGER_DEBUG] Starting GUI server with command: {' '.join(server_cmd)}")
+        print(f"[GUI_MANAGER_DEBUG] Working directory: {os.path.dirname(__file__)}")
+        print(f"[GUI_MANAGER_DEBUG] Environment DISPLAY: {os.environ.get('DISPLAY', 'NOT_SET')}")
+        
         self.process = subprocess.Popen(server_cmd, cwd=os.path.dirname(__file__))
+        print(f"[GUI_MANAGER_DEBUG] GUI server process started with PID: {self.process.pid}")
         
         # Wait for server to be ready
-        return self.wait_ready(timeout=timeout)
+        ready = self.wait_ready(timeout=timeout)
+        print(f"[GUI_MANAGER_DEBUG] GUI server ready status: {ready}")
+        return ready
     
     def wait_ready(self, timeout=12):
         """Wait for GUI control server to become ready"""
+        print(f"[GUI_MANAGER_DEBUG] Waiting for GUI server to be ready (timeout: {timeout}s)")
         t0 = time.time()
+        attempt = 0
+        
         while time.time() - t0 < timeout:
+            attempt += 1
             try:
-                r = self.session.get(f'http://127.0.0.1:{self.port}/healthz', timeout=2)
+                health_url = f'http://127.0.0.1:{self.port}/healthz'
+                print(f"[GUI_MANAGER_DEBUG] Health check attempt {attempt} to {health_url}")
+                r = self.session.get(health_url, timeout=2)
+                print(f"[GUI_MANAGER_DEBUG] Health check response: {r.status_code}")
+                
                 if 200 <= r.status_code < 300:
+                    print(f"[GUI_MANAGER_DEBUG] GUI server ready after {time.time() - t0:.1f}s")
                     return True
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[GUI_MANAGER_DEBUG] Health check attempt {attempt} failed: {e}")
             time.sleep(0.2)
+            
+        print(f"[GUI_MANAGER_DEBUG] GUI server NOT ready after {timeout}s timeout")
         return False
     
     def control_viewer(self, action, logger_func=None):
