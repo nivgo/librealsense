@@ -1,5 +1,5 @@
 // License: Apache 2.0. See LICENSE file in root directory.
-// Copyright(c) 2023 RealSense, Inc. All Rights Reserved.
+// Copyright(c) 2023 Intel Corporation. All Rights Reserved.
 
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -13,6 +13,7 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 
 #include "device-model.h"
 
@@ -31,6 +32,18 @@
 #include <opengl3.h>
 
 #include <iostream>
+
+// Forward declarations for ui_dump and ui_actions functionality
+#ifdef RS_DUMP_UI
+extern void ui_dump_begin_frame(int frame_index);
+extern void ui_dump_end_frame_and_write(const char* outdir, bool with_screenshot);
+extern void ui_dump_on_begin_window(const char* title, ImGuiID id, bool scrollable, uint64_t owner_id);
+extern void ui_dump_on_end_window();
+#endif
+
+#ifdef RS_API
+extern void ui_actions_frame_tick();
+#endif
 
 void glfw_error_callback(int error, const char* description)
 {
@@ -474,7 +487,12 @@ namespace rs2
     void ux_window::imgui_config_pop()
     {
         ImGui::PopFont();
-        ImGui::End();
+
+#ifdef RS_DUMP_UI
+        ui_dump_on_end_window();
+#endif
+
+        UI_End();
 
         ImGui::PopStyleColor(3);
         ImGui::PopStyleVar(2);
@@ -513,7 +531,7 @@ namespace rs2
             _splash_tex.show({ 0.f,0.f,float(_width),float(_height) }, opacity);
         }
 
-        std::string hourglass = std::string(rsutils::string::from() << textual_icons::hourglass);
+        std::string hourglass = u8"\uf251";
         static rsutils::time::periodic_timer every_200ms(std::chrono::milliseconds(200));
         bool do_200ms = every_200ms;
         if (_query_devices && do_200ms)
@@ -523,8 +541,7 @@ namespace rs2
 
             if (!_missing_device)
             {
-                std::string rs_dev_detected = std::string(rsutils::string::from() << textual_icons::usb
-                    << " RealSense device detected.");
+                _dev_stat_message = u8"\uf287 RealSense device detected.";
                 _query_devices = false;
             }
         }
@@ -546,7 +563,12 @@ namespace rs2
         ImGui::SetNextWindowPos({ (float)_width / 2 - 150, (float)_height / 2 + 70 });
 
         ImGui::SetNextWindowSize({ (float)_width, (float)_height });
-        ImGui::Begin("Splash Screen Banner", nullptr, flags);
+        UI_Begin("Splash Screen Banner", nullptr, flags);
+
+#ifdef RS_DUMP_UI
+        ui_dump_on_begin_window("Splash Screen Banner", ImGui::GetCurrentWindow()->ID, true, 0);
+#endif
+
         ImGui::PushFont(_font_18);
 
         ImGui::Text("%s   Loading %s...", hourglass.c_str(), _title_str.c_str());
@@ -769,6 +791,11 @@ namespace rs2
         _mouse.ui_wheel = 0.f;
         
         RsImGui::PushNewFrame();
+
+#ifdef RS_DUMP_UI
+        static int g_frame_idx = 0;
+        ui_dump_begin_frame(g_frame_idx++);
+#endif
     }
 
     void ux_window::begin_viewport()
@@ -790,7 +817,18 @@ namespace rs2
         if (!_first_frame)
         {
             ImGui::Render();
+
+#ifdef RS_API
+            ui_actions_frame_tick();              // apply queued actions from API
+#endif
+
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            
+#ifdef RS_DUMP_UI
+            // Take screenshot after ImGui has been rendered but before buffer swap
+            ui_dump_end_frame_and_write("/tmp/rs-viewer-ui", /*with_screenshot=*/true);
+#endif
+
             glfwSwapBuffers(_win);
             _mouse.mouse_wheel = 0;
         }
@@ -811,7 +849,7 @@ namespace rs2
         _first_frame = true;
         _app_ready = false;
         _splash_timer.reset();
-        _dev_stat_message = std::string(rsutils::string::from() << textual_icons::usb << " Please connect RealSense device!");
+        _dev_stat_message = u8"\uf287 Please connect Intel RealSense device!";
 
         {
             std::lock_guard<std::mutex> lock(_on_load_message_mtx);

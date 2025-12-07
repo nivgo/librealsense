@@ -1,5 +1,5 @@
 // License: Apache 2.0. See LICENSE file in root directory.
-// Copyright(c) 2017-24 RealSense, Inc. All Rights Reserved.
+// Copyright(c) 2017-24 Intel Corporation. All Rights Reserved.
 #include <librealsense2/rs.hpp>
 #include "viewer.h"
 #include "os.h"
@@ -21,6 +21,22 @@
 #include <regex>
 
 #include <imgui_internal.h>
+
+#include "rs_imgui.h"
+#include "../../common/ui_instrumentation.h"
+
+#ifdef RS_API
+extern void ui_actions_start(unsigned short port);
+extern void ui_actions_stop();
+#endif
+
+#ifdef RS_DUMP_UI
+extern void ui_dump_begin_frame(int frame_index);
+extern void ui_dump_end_frame_and_write(const char* outdir, bool with_screenshot);
+extern void ui_dump_print_coverage_summary();
+extern void ui_dump_self_check_validation();
+extern void ui_dump_comprehensive_validation();
+#endif
 
 #ifdef INTERNAL_FW
 #include "common/fw/D4XX_FW_Image.h"
@@ -130,7 +146,7 @@ void add_playback_device( context & ctx,
 // This function is called every frame
 // If between the frames there was an asyncronous connect/disconnect event
 // the function will pick up on this and add the device to the viewer
-void refresh_devices(std::mutex& m,
+bool refresh_devices(std::mutex& m,
     context& ctx,
     device_changes& devices_connection_changes,
     std::vector<device>& current_connected_devices,
@@ -139,10 +155,9 @@ void refresh_devices(std::mutex& m,
     viewer_model& viewer_model,
     std::string& error_message)
 {
-    
     event_information info({}, {});
     if (!devices_connection_changes.try_get_next_changes(info))
-        return ;
+        return false;
     try
     {
         //Remove disconnected
@@ -284,7 +299,7 @@ void refresh_devices(std::mutex& m,
     {
         error_message = "Unknown error";
     }
-    return;
+    return true;
 }
 
 
@@ -296,7 +311,7 @@ int main(int argc, const char** argv) try
     std::shared_ptr<device_models_list> device_models = std::make_shared<device_models_list>();
 
     context ctx( settings.dump() );
-    ux_window window("RealSense Viewer", ctx);
+    ux_window window("Intel RealSense Viewer", ctx);
 
     // Create RealSense Context
     device_changes devices_connection_changes(ctx);
@@ -316,6 +331,10 @@ int main(int argc, const char** argv) try
     viewer_model viewer_model( ctx, disable_log_to_console );
 
     update_viewer_configuration(viewer_model);
+
+#ifdef RS_API
+    ui_actions_start(8787);
+#endif
 
     std::vector<device> connected_devs;
     std::mutex m;
@@ -370,10 +389,18 @@ int main(int argc, const char** argv) try
         return true;
     };
 
+#ifdef RS_API
+    ui_actions_start(8787);
+#endif
+
     // Closing the window
     while (window)
     {
-        refresh_devices(m, ctx, devices_connection_changes, connected_devs,
+#ifdef RS_DUMP_UI
+        static int frame_counter = 0;
+        ui_dump_begin_frame(frame_counter++);
+#endif
+        auto device_changed = refresh_devices(m, ctx, devices_connection_changes, connected_devs,
             device_names, *device_models, viewer_model, error_message);
 
         auto output_height = viewer_model.get_output_height();
@@ -392,7 +419,7 @@ int main(int argc, const char** argv) try
         ImGui::SetNextWindowSize({ viewer_model.panel_width, viewer_model.panel_y });
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGui::Begin("Add Device Panel", nullptr, flags);
+        UI_Begin("Add Device Panel", nullptr, flags);
 
         ImGui::PushFont(window.get_large_font());
         ImGui::PushStyleColor(ImGuiCol_PopupBg, from_rgba(230, 230, 230, 255));
@@ -406,7 +433,7 @@ int main(int argc, const char** argv) try
                                           << "  Add Source (" << (device_names.size() - device_models->size()) 
                                           << " available)\t\t\t\t\t\t\t\t\t\t\t";
 
-        if (ImGui::Button(add_source_button_text.c_str(), { viewer_model.panel_width - 1, viewer_model.panel_y }))
+        if (RS_Button(add_source_button_text.c_str(), { viewer_model.panel_width - 1, viewer_model.panel_y }))
             ImGui::OpenPopup("select");
 
         auto new_devices_count = device_names.size() + 1;
@@ -450,7 +477,7 @@ int main(int argc, const char** argv) try
         ImVec2 popup_select_size = { viewer_model.panel_width, popup_select_h };
         ImGui::SetNextWindowSize( popup_select_size );
 
-        if (ImGui::BeginPopup("select"))
+        if (UI_BeginPopup("select"))
         {
             ImGui::PushStyleColor(ImGuiCol_Text, dark_grey);
             ImGui::Columns(1, "DevicesList", false);
@@ -474,7 +501,7 @@ int main(int argc, const char** argv) try
                                                            << ") S/N " << device_names[i].second.c_str();
 
                 ImGui::PushID(static_cast<int>(i));
-                if (ImGui::Selectable(line.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)/* || switch_to_newly_loaded_device*/)
+                if (RS_Selectable(line.c_str(), false, ImGuiSelectableFlags_SpanAllColumns)/* || switch_to_newly_loaded_device*/)
                 {
                     try
                     {
@@ -494,7 +521,7 @@ int main(int argc, const char** argv) try
 
             if (new_devices_count > 1) ImGui::Separator();
 
-            if (ImGui::Selectable("Load Recorded Sequence", false, ImGuiSelectableFlags_SpanAllColumns))
+            if (RS_Selectable("Load Recorded Sequence", false, ImGuiSelectableFlags_SpanAllColumns))
             {
                 if (auto ret = file_dialog_open(open_file, "ROS-bag\0*.bag\0", NULL, NULL))
                 {
@@ -504,8 +531,8 @@ int main(int argc, const char** argv) try
             ImGui::NextColumn();
 
             ImGui::PopStyleColor();
-            ImGui::EndPopup();
-        }
+            UI_EndPopup();
+            }
         ImGui::PopFont();
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();
@@ -513,7 +540,7 @@ int main(int argc, const char** argv) try
         ImGui::PopStyleColor();
         ImGui::PopFont();
 
-        ImGui::End();
+        UI_End();
         ImGui::PopStyleVar();
 
 
@@ -534,7 +561,7 @@ int main(int argc, const char** argv) try
         // *********************
         // Creating window menus
         // *********************
-        ImGui::Begin("Control Panel", nullptr, flags | ImGuiWindowFlags_AlwaysVerticalScrollbar);
+        UI_Begin("Control Panel", nullptr, flags | ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
         if (device_models->size() > 0)
         {
@@ -613,12 +640,40 @@ int main(int argc, const char** argv) try
             viewer_model.show_no_device_overlay(window.get_large_font(), 50, static_cast<int>(viewer_model.panel_y + 50));
         }
 
-        ImGui::End();
+        UI_End();
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();
 
+
+
         // Fetch and process frames from queue
         viewer_model.handle_ready_frames(viewer_rect, window, static_cast<int>(device_models->size()), error_message);
+        
+#ifdef RS_DUMP_UI
+        // Check for F9 key to trigger coverage validation
+        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_F9))) {
+            ui_dump_print_coverage_summary();
+        }
+        
+        // Check for F10 key to trigger comprehensive self-check validation
+        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_F10))) {
+            ui_dump_self_check_validation();
+        }
+        
+        // Check for F11 key to trigger comprehensive validation
+        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_F11))) {
+            ui_dump_comprehensive_validation();
+        }
+        
+        // Check for F12 key to toggle change detection mode
+        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_F12))) {
+            bool current_change_detection;
+            ui_dump_get_config(&current_change_detection, nullptr, nullptr);
+            ui_dump_set_change_detection(!current_change_detection);
+        }
+        
+        ui_dump_end_frame_and_write("/tmp/rs-viewer-ui", true);
+#endif
         }
 
     // Stopping post processing filter rendering thread
@@ -631,6 +686,10 @@ int main(int argc, const char** argv) try
             if (sub->streaming)
                 sub->stop(viewer_model.not_model);
         }
+
+#ifdef RS_API
+    ui_actions_stop();
+#endif
 
     return EXIT_SUCCESS;
 }

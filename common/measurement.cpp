@@ -5,6 +5,7 @@
 #include "ux-window.h"
 #include <rs-config.h>
 #include <librealsense2/hpp/rs_export.hpp>
+#include "ui_instrumentation.h"
 
 #include "opengl3.h"
 
@@ -259,7 +260,7 @@ void measurement::draw_label(ux_window& win, float3 pos, float distance, int hei
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10);
     ImGui::SetNextWindowPos(ImVec2(w_pos.x - size.x / 2, height - w_pos.y - size.y / 2 - 5));
     ImGui::SetNextWindowSize(ImVec2(size.x + 20, size.y - 15));
-    ImGui::Begin(win_id.c_str(), nullptr, flags);
+    UI_Begin(win_id.c_str(), nullptr, flags);
 
     if (is_area) ImGui::PushFont(win.get_large_font());
     ImGui::Text("%s", label.c_str());
@@ -270,7 +271,7 @@ void measurement::draw_label(ux_window& win, float3 pos, float distance, int hei
         ImGui::Text("%s", "2");
     }
 
-    ImGui::End();
+    UI_End();
     ImGui::PopStyleVar();
     ImGui::PopStyleColor(2);
 }

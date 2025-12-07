@@ -1,5 +1,5 @@
 // License: Apache 2.0. See LICENSE file in root directory.
-// Copyright(c) 2017 RealSense, Inc. All Rights Reserved.
+// Copyright(c) 2017 Intel Corporation. All Rights Reserved.
 
 #ifdef _MSC_VER
 #ifndef NOMINMAX
@@ -10,6 +10,7 @@
 #include <librealsense2/rs.hpp>
 
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 #include "model-views.h"
 #include "subdevice-model.h"
 #include "stream-model.h"
@@ -33,6 +34,14 @@
 #include "metadata-helper.h"
 #include "calibration-model.h"
 #include "sw-update/http-downloader.h"
+
+// UI dumping support
+#ifdef RS_DUMP_UI
+#  define RS_LOG_LAST(TYPE, LABEL) ui_dump_on_item_committed(TYPE, LABEL)
+extern void ui_dump_on_item_committed(const char* type, const char* label);
+#else
+#  define RS_LOG_LAST(TYPE, LABEL) do{}while(0)
+#endif
 
 #include <thread>
 #include <algorithm>
@@ -103,7 +112,9 @@ namespace rs2
 
     void hyperlink(ux_window& window, const char* title, const char* link)
     {
-        if (ImGui::Button(title))
+        if (
+            UI_Button(title)
+        )
         {
             open_url(link);
         }
@@ -294,7 +305,9 @@ namespace rs2
 
         ImGui::OpenPopup(title.c_str());
         ImGui::SetNextWindowPos( {window.width() * 0.35f, window.height() * 0.35f });
-        if (ImGui::BeginPopup(title.c_str()))
+        if (
+            UI_BeginPopup(title.c_str())
+        )
         {
             {
                 RsImGui_ScopePushStyleColor(ImGuiCol_Text, almost_white_bg);
@@ -315,14 +328,14 @@ namespace rs2
                     ImGui::Dummy(ImVec2(0, 0));
                     ImGui::Dummy(ImVec2(width / 3.f, 0));
                     ImGui::SameLine();
-                    if (ImGui::Button("Yes", ImVec2(60, 30)))
+                    if (UI_Button("Yes", ImVec2(60, 30)))
                     {
                         ImGui::CloseCurrentPopup();
                         approved = true;
                         clicked = true;
                     }
                     ImGui::SameLine();
-                    if (ImGui::Button("No", ImVec2(60, 30)))
+                    if (UI_Button("No", ImVec2(60, 30)))
                     {
                         ImGui::CloseCurrentPopup();
                         approved = false;
@@ -338,7 +351,7 @@ namespace rs2
                     }
                     auto window_width = ImGui::GetWindowWidth();
                     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + window_width / 2.f - 30.f - ImGui::GetStyle().WindowPadding.x);
-                    if (ImGui::Button("Close", ImVec2(60, 30)))
+                    if (UI_Button("Close", ImVec2(60, 30)))
                     {
                         ImGui::CloseCurrentPopup();
                         approved = false;
@@ -346,7 +359,7 @@ namespace rs2
                     }
                 }
             }
-            ImGui::EndPopup();
+            UI_EndPopup();
         }
         return clicked;
     }
@@ -369,7 +382,7 @@ namespace rs2
 
         ImGui::OpenPopup(title.c_str());
         ImGui::SetNextWindowPos({ window.width() * 0.35f, window.height() * 0.35f });
-        if (ImGui::BeginPopup(title.c_str()))
+        if (UI_BeginPopup(title.c_str()))
         {
             {
                 RsImGui_ScopePushStyleColor(ImGuiCol_Text, almost_white_bg);
@@ -398,14 +411,14 @@ namespace rs2
                 if (enable_close)
                 {
                     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + window_width / 2.f - 50.f); // 50 = 30 (button size) + 20 (padding)
-                    if (ImGui::Button("Close", ImVec2(60, 30)))
+                    if (UI_Button("Close", ImVec2(60, 30)))
                     {
                         ImGui::CloseCurrentPopup();
                         close_clicked = true;
                     }
                 }
             }
-            ImGui::EndPopup();
+            UI_EndPopup();
         }
         return close_clicked;
     }

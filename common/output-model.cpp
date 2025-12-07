@@ -8,7 +8,8 @@
 #include "device-model.h"
 #include "os.h"
 
-#include <imgui_internal.h>
+#include <imgui.h>
+#include "ui_instrumentation.h"
 #include <librealsense2/hpp/rs_internal.hpp>
 
 #include <fstream>
@@ -230,7 +231,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
     ImGui::SetNextWindowSize({ w, h });
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(3, 3));
 
-    ImGui::Begin("Output", nullptr, flags);
+    UI_Begin("Output", nullptr, flags);
 
     ImGui::SetCursorPosX(w - 31);
     if (!is_output_open)
@@ -375,7 +376,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
             buff[tmp.size()] = 0;
         }
 
-        if (ImGui::InputText("##SearchInLogs",buff, 1023))
+        if (UI_InputText("##SearchInLogs",buff, 1023))
         {
             if( search_open )
             {
@@ -442,7 +443,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
 
         const float log_area_width = w - get_dashboard_width() - 2;
 
-        ImGui::BeginChild("##LogArea",
+        UI_BeginChild("##LogArea",
             ImVec2(log_area_width, h - 38 - ImGui::GetTextLineHeightWithSpacing() - 1), true,
             ImGuiWindowFlags_AlwaysVerticalScrollbar);
 
@@ -532,7 +533,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
             ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, white);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5,5));
             label = rsutils::string::from() << "##log_entry" << i << "_context_menu";
-            if (ImGui::BeginPopupContextItem(label.c_str()))
+            if (UI_BeginPopupContextItem(label.c_str()))
             {
                 log.selected = true;
                 ImGui::PushFont(win.get_font());
@@ -654,7 +655,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
         }
 
         ImGui::PushStyleColor(ImGuiCol_FrameBg, scrollbar_bg);
-        if (ImGui::InputText("##TerminalCommand", buff, 1023, flags))
+        if (UI_InputText("##TerminalCommand", buff, 1023, flags))
         {
 
         }
@@ -690,7 +691,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
         auto dashboard_width = get_dashboard_width();
         ImGui::SetCursorPos( ImVec2( w - dashboard_width, 35 ) );
 
-        ImGui::BeginChild( "##StatsArea", ImVec2( dashboard_width - 3.f, h - 38 ), true );
+        UI_BeginChild( "##StatsArea", ImVec2( dashboard_width - 3.f, h - 38 ), true );
 
         const ImVec2 collapse_dashboard_button_size = { 28, 28 };
         const int max_dashboard_width = (int)( ( 0.3f * w ) );
@@ -785,7 +786,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
             ImGui::PushStyleColor(ImGuiCol_HeaderHovered, light_blue);
             ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, white);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5,5));
-            if (ImGui::BeginPopup(new_dashboard_name))
+            if (UI_BeginPopup(new_dashboard_name))
             {
                 for (auto&& kvp : available_dashboards)
                 {
@@ -820,7 +821,7 @@ void output_model::draw(ux_window& win, rect view_rect, device_models_list & dev
     else foreach_log([&](log_entry& log) {});
 
 
-    ImGui::End();
+    UI_End();
     ImGui::PopStyleColor(7);
     ImGui::PopStyleVar();
     ImGui::PopFont();
@@ -1267,7 +1268,7 @@ void frame_drops_dashboard::draw(ux_window& win, rect r)
     methods.push_back("Camera Timestamp Rate");
 
     ImGui::PushItemWidth(-1.f);
-    if (ImGui::Combo("##fps_method", &method, methods.data(), (int)(methods.size())))
+    if (UI_Combo("##fps_method", &method, methods.data(), (int)(methods.size())))
     {
         clear(false);
     }

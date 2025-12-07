@@ -5,7 +5,8 @@
 #include "subdevice-model.h"
 #include "viewer.h"
 #include "os.h"
-#include <imgui_internal.h>
+#include <imgui.h>
+#include "ui_instrumentation.h"
 #include <realsense_imgui.h>
 
 struct attribute
@@ -822,11 +823,11 @@ namespace rs2
                     {
                         if (timestamp_domain == RS2_TIMESTAMP_DOMAIN_SYSTEM_TIME)
                         {
-                            ImGui::BeginTooltip();
+                            UI_BeginTooltip();
                             ImGui::PushTextWrapPos(450.0f);
                             ImGui::TextUnformatted("Timestamp Domain: System Time. Hardware Timestamps unavailable!\nPlease refer to frame_metadata.md for more information");
                             ImGui::PopTextWrapPos();
-                            ImGui::EndTooltip();
+                            UI_EndTooltip();
                         }
                         else if (timestamp_domain == RS2_TIMESTAMP_DOMAIN_GLOBAL_TIME)
                         {
@@ -1050,7 +1051,7 @@ namespace rs2
 
         // Creating layer for metadata
         std::string metadata_layer_id = rsutils::string::from() << "##Metadata-" << profile.unique_id();
-        ImGui::BeginChild( metadata_layer_id.c_str(), ImVec2( stream_rect.w + 2, stream_rect.h ) );
+        UI_BeginChild( metadata_layer_id.c_str(), ImVec2( stream_rect.w + 2, stream_rect.h ) );
         auto screen_pos = ImGui::GetCursorScreenPos( );
         const float space_between_columns = 20.f;
         const float space_between_lines = 4.f;
@@ -1088,7 +1089,7 @@ namespace rs2
                     ImGui::PushItemWidth(warning_size.x + 5);
 
                     std::string metadata_id = rsutils::string::from() << "##" << at.name << "-" << profile.unique_id();
-                    ImGui::InputText( metadata_id.c_str(),
+                    UI_InputText( metadata_id.c_str(),
                                       (char *)warning_lines[i].c_str(),
                                       warning_lines[i].size(),
                                       ImGuiInputTextFlags_ReadOnly );
@@ -1114,7 +1115,7 @@ namespace rs2
                 ImGui::PushItemWidth(label_size.x + 5);  // Set input text width for label.
 
                 std::string label_id = rsutils::string::from() << "##" << at.name << "-" << profile.unique_id();
-                ImGui::InputText( label_id.c_str(),
+                UI_InputText( label_id.c_str(),
                                   (char *)text.c_str(),
                                   text.size(),
                                   ImGuiInputTextFlags_ReadOnly );
@@ -1144,7 +1145,7 @@ namespace rs2
                 ImGui::PushItemWidth(value_size.x + 5);  // Set input text width for label value.
 
                 std::string value_id = rsutils::string::from() << "##" << at.name << "-" << at.value << "-" << profile.unique_id();
-                ImGui::InputText( value_id.c_str(),
+                UI_InputText( value_id.c_str(),
                                   (char *)text.c_str(),
                                   text.size(),
                                   ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_ReadOnly );
@@ -1685,7 +1686,7 @@ namespace rs2
                 ImGui::SetCursorPos({ rc.x + 27 + motion.nameExtraSpace, rc.y + 1 });
                 std::string label = rsutils::string::from() << "##" << profile.unique_id() << "." << rc.y << " " << motion.name.c_str();
                 std::string coordinate = rsutils::string::from() << std::fixed << std::setprecision(precision) << std::showpos << motion.coordinate;
-                ImGui::InputText(label.c_str(), (char*)coordinate.c_str(), coordinate.size() + 1, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_ReadOnly);
+                UI_InputText(label.c_str(), (char*)coordinate.c_str(), coordinate.size() + 1, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_ReadOnly);
                 ImGui::PopItemWidth();
 
                 ImGui::SetCursorPos({ rc.x + 80 + motion.nameExtraSpace, rc.y + 4 });
@@ -1822,7 +1823,7 @@ namespace rs2
 
             auto textSize = ImGui::CalcTextSize((char*)data.c_str(), (char*)data.c_str() + data.size() + 1);
             ImGui::PushItemWidth(textSize.x);
-            ImGui::InputText(label.c_str(), (char*)data.c_str(), data.size() + 1, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_ReadOnly);
+            UI_InputText(label.c_str(), (char*)data.c_str(), data.size() + 1, ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_ReadOnly);
             ImGui::PopItemWidth();
 
             if (pose.fixedColor == false)

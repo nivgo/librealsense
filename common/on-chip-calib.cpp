@@ -10,7 +10,8 @@
 #include <thread>
 #include <condition_variable>
 #include <model-views.h>
-#include <realsense_imgui.h>
+#include <imgui.h>
+#include "ui_instrumentation.h"
 #include <viewer.h>
 #include "calibration-model.h"
 #include "os.h"
@@ -1643,7 +1644,7 @@ namespace rs2
                 float target_width = config_file::instance().get_or_default(configurations::viewer::target_width_r, 175.0f);
                 std::string tw = rsutils::string::from() << target_width;
                 memcpy(buff, tw.c_str(), tw.size() + 1);
-                if (ImGui::InputText(id.c_str(), buff, std::max((int)tw.size() + 1, 10)))
+                if (UI_InputText(id.c_str(), buff, std::max((int)tw.size() + 1, 10)))
                 {
                     std::stringstream ss;
                     ss << buff;
@@ -1665,7 +1666,7 @@ namespace rs2
                 float target_height = config_file::instance().get_or_default(configurations::viewer::target_height_r, 100.0f);
                 std::string th = rsutils::string::from() << target_height;
                 memcpy(buff, th.c_str(), th.size() + 1);
-                if (ImGui::InputText(id.c_str(), buff, std::max((int)th.size() + 1, 10)))
+                if (UI_InputText(id.c_str(), buff, std::max((int)th.size() + 1, 10)))
                 {
                     std::stringstream ss;
                     ss << buff;
@@ -1787,7 +1788,7 @@ namespace rs2
 
                     std::string id = rsutils::string::from() << "##avg_step_count_" << index;
                     ImGui::PushItemWidth(width - 145.f);
-                    ImGui::SliderInt(id.c_str(), &get_manager().average_step_count, 1, 30);
+                    UI_SliderInt(id.c_str(), &get_manager().average_step_count, 1, 30);
                     ImGui::PopItemWidth();
 
                     //-------------------------
@@ -1803,7 +1804,7 @@ namespace rs2
                     id = rsutils::string::from() << "##step_count_" << index;
 
                     ImGui::PushItemWidth(width - 145.f);
-                    ImGui::SliderInt(id.c_str(), &get_manager().step_count, 1, 30);
+                    UI_SliderInt(id.c_str(), &get_manager().step_count, 1, 30);
                     ImGui::PopItemWidth();
 
                     //-------------------------
@@ -1824,7 +1825,7 @@ namespace rs2
                     for (auto&& s : vals) vals_cstr.push_back(s.c_str());
 
                     ImGui::PushItemWidth(width - 145.f);
-                    ImGui::Combo(id.c_str(), &get_manager().accuracy, vals_cstr.data(), int(vals.size()));
+                    UI_Combo(id.c_str(), &get_manager().accuracy, vals_cstr.data(), int(vals.size()));
 
                     ImGui::SetCursorScreenPos({ float(x + 135), float(y + 35 + ImGui::GetTextLineHeightWithSpacing()) });
 
@@ -1863,7 +1864,7 @@ namespace rs2
                 memcpy(buff, gt.c_str(), gt.size() + 1);
 
                 ImGui::PushItemWidth(width - 196.f);
-                if (ImGui::InputText(id.c_str(), buff, std::max((int)gt.size() + 1, 10)))
+                if (UI_InputText(id.c_str(), buff, std::max((int)gt.size() + 1, 10)))
                 {
                     std::stringstream ss;
                     ss << buff;
@@ -1936,7 +1937,7 @@ namespace rs2
                     for (auto&& s : vals) vals_cstr.push_back(s.c_str());
 
                     ImGui::PushItemWidth(width - 145.f);
-                    ImGui::Combo(id.c_str(), &get_manager().speed_fl, vals_cstr.data(), int(vals.size()));
+                    UI_Combo(id.c_str(), &get_manager().speed_fl, vals_cstr.data(), int(vals.size()));
                     ImGui::PopItemWidth();
                 }
                 else
@@ -1945,7 +1946,7 @@ namespace rs2
                     for (auto&& s : vals) vals_cstr.push_back(s.c_str());
 
                     ImGui::PushItemWidth(width - 145.f);
-                    ImGui::Combo(id.c_str(), &get_manager().speed, vals_cstr.data(), int(vals.size()));
+                    UI_Combo(id.c_str(), &get_manager().speed, vals_cstr.data(), int(vals.size()));
                     ImGui::PopItemWidth();
                 }
 
@@ -2027,7 +2028,7 @@ namespace rs2
                 float target_width = config_file::instance().get_or_default(configurations::viewer::target_width_r, 175.0f);
                 std::string tw = rsutils::string::from() << target_width;
                 memcpy(buff, tw.c_str(), tw.size() + 1);
-                if (ImGui::InputText(id.c_str(), buff, std::max((int)tw.size() + 1, 10)))
+                if (UI_InputText(id.c_str(), buff, std::max((int)tw.size() + 1, 10)))
                 {
                     std::stringstream ss;
                     ss << buff;
@@ -2049,7 +2050,7 @@ namespace rs2
                 float target_height = config_file::instance().get_or_default(configurations::viewer::target_height_r, 100.0f);
                 std::string th = rsutils::string::from() << target_height;
                 memcpy(buff, th.c_str(), th.size() + 1);
-                if (ImGui::InputText(id.c_str(), buff, std::max((int)th.size() + 1, 10)))
+                if (UI_InputText(id.c_str(), buff, std::max((int)th.size() + 1, 10)))
                 {
                     std::stringstream ss;
                     ss << buff;
@@ -2741,7 +2742,7 @@ namespace rs2
         if (update_manager->failed()) title += " Failed";
 
         ImGui::OpenPopup(title.c_str());
-        if (ImGui::BeginPopupModal(title.c_str(), nullptr, flags))
+        if (UI_BeginPopupModal(title.c_str(), nullptr, flags))
         {
             ImGui::SetCursorPosX(200);
             std::string progress_str = rsutils::string::from() << "Progress: " << update_manager->get_progress() << "%";

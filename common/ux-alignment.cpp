@@ -3,6 +3,7 @@
 
 #include "ux-alignment.h"
 #include <imgui.h>
+#include "ui_instrumentation.h"
 #include <imgui_impl_glfw.h>
 #include <realsense_imgui.h>
 #include <vector>
@@ -35,7 +36,7 @@ bool is_gui_aligned(GLFWwindow *win)
         ImGui::SetNextWindowPos({ 0, 0 });
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGui::Begin("is_gui_aligned", nullptr, flags);
+        UI_Begin("is_gui_aligned", nullptr, flags);
 
         auto DrawList = ImGui::GetWindowDrawList();
         if (DrawList == nullptr)
@@ -43,7 +44,7 @@ bool is_gui_aligned(GLFWwindow *win)
 
         DrawList->AddRectFilled({ 0,0 }, { 1,1 }, ImColor(MAGIC / 255.f, 0.f, 0.f, 1.f));
 
-        ImGui::End();
+        UI_End();
         ImGui::PopStyleVar();
 
         ImGui::Render();

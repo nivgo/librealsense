@@ -16,6 +16,10 @@
 
 #include <imgui_internal.h>
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
+#ifdef RS_DUMP_UI
+#include "../tools/realsense-viewer/rs_imgui.h"
+#endif
 
 #define ARCBALL_CAMERA_IMPLEMENTATION
 #include <third-party/arcball_camera.h>
@@ -81,7 +85,7 @@ namespace rs2
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 1);
 
         static export_type tab = export_type::ply;
-        if (ImGui::BeginPopupModal("Export", nullptr, flags))
+        if (UI_BeginPopupModal("Export", nullptr, flags))
         {
             ImGui::PushStyleColor(ImGuiCol_Button, sensor_bg);
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, sensor_bg);
@@ -91,7 +95,7 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_Text, tab != exporter.first ? light_grey : light_blue);
                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, tab != exporter.first ? light_grey : light_blue);
                 ImGui::SameLine();
-                if (ImGui::Button(exporter.second.name.c_str(), { w / exporters.size() - 50, 30 }))
+                if (UI_Button(exporter.second.name.c_str(), { w / exporters.size() - 50, 30 }))
                 {
                     config_file::instance().set(configurations::viewer::settings_tab, tab);
                     temp_cfg.set(configurations::viewer::settings_tab, tab);
@@ -113,7 +117,7 @@ namespace rs2
                 ImGui::PopStyleColor();
                 ImGui::NewLine();
                 ImGui::Separator();
-                if (ImGui::Checkbox("Meshing", &mesh))
+                if (UI_Checkbox("Meshing", &mesh))
                 {
                     temp_cfg.set(configurations::ply::mesh, mesh);
                 }
@@ -128,7 +132,7 @@ namespace rs2
                     ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, black);
                     ImGui::PushStyleColor(ImGuiCol_FrameBgActive, black);
                 }
-                if (ImGui::Checkbox("Normals", &use_normals))
+                if (UI_Checkbox("Normals", &use_normals))
                 {
                     if (!mesh)
                         use_normals = false;
@@ -154,12 +158,12 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_Text, grey);
                 ImGui::Text("Save PLY as binary, or as a larger textual human-readable file");
                 ImGui::PopStyleColor();
-                if (ImGui::RadioButton("Textual", encoding == configurations::ply::textual))
+                if (UI_RadioButton("Textual", encoding == configurations::ply::textual))
                 {
                     encoding = configurations::ply::textual;
                     temp_cfg.set(configurations::ply::encoding, encoding);
                 }
-                if (ImGui::RadioButton("Binary", encoding == configurations::ply::binary))
+                if (UI_RadioButton("Binary", encoding == configurations::ply::binary))
                 {
                     encoding = configurations::ply::binary;
                     temp_cfg.set(configurations::ply::encoding, encoding);
@@ -188,7 +192,7 @@ namespace rs2
 
             ImGui::SetCursorScreenPos({ (float)(x0 + w / 2), (float)(y0 + h - 30) });
 
-            if( ImGui::Button( "Export", ImVec2( font_size * 8.f, 0 ) ) )
+            if( UI_Button( "Export", ImVec2( font_size * 8.f, 0 ) ) )
             {
                 apply();
                 if (!last_points)
@@ -231,7 +235,7 @@ namespace rs2
                 RsImGui::CustomTooltip("%s", "Save settings and export file");
             }
             ImGui::SameLine();
-            if( ImGui::Button( "Cancel", ImVec2( font_size * 8.f, 0 ) ) )
+            if( UI_Button( "Cancel", ImVec2( font_size * 8.f, 0 ) ) )
             {
                 ImGui::CloseCurrentPopup();
             }
@@ -289,7 +293,7 @@ namespace rs2
 
         ImGui::SetCursorPos( { x, y } );
         ImGui::PushFont(large_font);
-        clicked = clicked || ImGui::Button( icon, { button_width, 50 } );
+        clicked = clicked || UI_Button( icon, { button_width, 50 } );
         ImGui::PopFont();
         hovered = hovered || ImGui::IsItemHovered();
 
@@ -297,12 +301,12 @@ namespace rs2
         ImGui::PushFont(font);
         if (dropdown)
         {
-            clicked = clicked || ImGui::Button(textual_icons::chevron_down, { font_size, 55 } );
+            clicked = clicked || UI_Button(textual_icons::chevron_down, { font_size, 55 } );
             hovered = hovered || ImGui::IsItemHovered();
         }
 
         ImGui::SetCursorPos( { x, y + 35 } );
-        clicked = clicked || ImGui::Button( label, { button_width, 20 } );
+        clicked = clicked || UI_Button( label, { button_width, 20 } );
         ImGui::PopFont();
         hovered = hovered || ImGui::IsItemHovered();
 
@@ -510,7 +514,7 @@ namespace rs2
         ImGui::PushStyleColor(ImGuiCol_HeaderHovered, light_blue);
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, white);
         ImGui::SetNextWindowPos({ cursor.x + left + 5, cursor.y + 60 });
-        if (ImGui::BeginPopup(source_selection_popup))
+        if (UI_BeginPopup(source_selection_popup))
         {
             select_3d_source = true;
 
@@ -524,7 +528,7 @@ namespace rs2
                     std::string id = rsutils::string::from() << depth_sources_str[i] << "##DepthSource-" << i;
 
                     bool selected = i == selected_depth_source;
-                    if (ImGui::MenuItem(id.c_str(), nullptr, &selected))
+                    if (UI_MenuItem(id.c_str(), nullptr, &selected))
                     {
                         if (selected)
                         {
@@ -561,7 +565,7 @@ namespace rs2
         }
 
         ImGui::SetNextWindowPos({ cursor.x + left + 5, cursor.y + 60 });
-        if (ImGui::BeginPopup(tex_selection_popup))
+        if (UI_BeginPopup(tex_selection_popup))
         {
             select_tex_source = true;
 
@@ -570,7 +574,7 @@ namespace rs2
                 std::string id = rsutils::string::from() << tex_sources_str[i] << "##TexSource-" << i;
 
                 bool selected = i == selected_tex_source;
-                if (ImGui::MenuItem(id.c_str(), nullptr, &selected))
+                if (UI_MenuItem(id.c_str(), nullptr, &selected))
                 {
                     if (selected)
                     {
@@ -598,24 +602,24 @@ namespace rs2
         }
 
         ImGui::SetNextWindowPos({ cursor.x + left + 5, cursor.y + 60 });
-        if (ImGui::BeginPopup(shader_selection_popup))
+        if (UI_BeginPopup(shader_selection_popup))
         {
             select_shader_source = true;
 
             bool selected = selected_shader == shader_type::points;
-            if (ImGui::MenuItem("Raw Point-Cloud", nullptr, &selected))
+            if (UI_MenuItem("Raw Point-Cloud", nullptr, &selected))
             {
                 if (selected) selected_shader = shader_type::points;
             }
 
             selected = selected_shader == shader_type::flat;
-            if (ImGui::MenuItem("Flat-Shaded Mesh", nullptr, &selected))
+            if (UI_MenuItem("Flat-Shaded Mesh", nullptr, &selected))
             {
                 if (selected) selected_shader = shader_type::flat;
             }
 
             selected = selected_shader == shader_type::diffuse;
-            if (ImGui::MenuItem("With Diffuse Lighting", nullptr, &selected, glsl_available))
+            if (UI_MenuItem("With Diffuse Lighting", nullptr, &selected, glsl_available))
             {
                 if (selected) selected_shader = shader_type::diffuse;
             }
@@ -691,24 +695,24 @@ namespace rs2
             }
 
             ImGui::SetNextWindowPos({ cursor.x + left + 5, cursor.y + 60 });
-            if (ImGui::BeginPopup(lpc_popup))
+            if (UI_BeginPopup(lpc_popup))
             {
                 select_lpc_point_size = true;
 
                 bool selected = selected_lpc_points_size == lpc_points_size::lpc_small;
-                if (ImGui::MenuItem("Small", nullptr, &selected))
+                if (UI_MenuItem("Small", nullptr, &selected))
                 {
                     if (selected) selected_lpc_points_size = lpc_points_size::lpc_small;
                 }
 
                 selected = selected_lpc_points_size == lpc_points_size::lpc_medium;
-                if (ImGui::MenuItem("Medium", nullptr, &selected))
+                if (UI_MenuItem("Medium", nullptr, &selected))
                 {
                     if (selected) selected_lpc_points_size = lpc_points_size::lpc_medium;
                 }
 
                 selected = selected_lpc_points_size == lpc_points_size::lpc_large;
-                if (ImGui::MenuItem("Large", nullptr, &selected))
+                if (UI_MenuItem("Large", nullptr, &selected))
                 {
                     if (selected) selected_lpc_points_size = lpc_points_size::lpc_large;
                 }
@@ -1049,7 +1053,7 @@ namespace rs2
 
         ImGui::OpenPopup(p.header.c_str());
 
-        if (ImGui::BeginPopupModal(p.header.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (UI_BeginPopupModal(p.header.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImGui::PushStyleColor(ImGuiCol_Button, transparent);
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, transparent);
@@ -1123,7 +1127,7 @@ namespace rs2
             //ImGui::SetCursorPos({ 10, 130 });
             ImGui::PopStyleColor(5);
 
-            if (ImGui::Button("OK", ImVec2(120, 0)))
+            if (UI_Button("OK", ImVec2(120, 0)))
             {
                 if (dont_show_this_error)
                 {
@@ -1135,7 +1139,7 @@ namespace rs2
             }
 
             ImGui::SameLine();
-            ImGui::Checkbox("Don't show this error again", &dont_show_this_error);
+            UI_Checkbox("Don't show this error again", &dont_show_this_error);
         };
 
         popup p = {header, message, custom_command };
@@ -1488,7 +1492,7 @@ namespace rs2
         ImGui::SetNextWindowPos({ viewer_rect.x, viewer_rect.y });
         ImGui::SetNextWindowSize({ viewer_rect.w, viewer_rect.h });
         ImGui::SetNextWindowBgAlpha(0.f);
-        ImGui::Begin("Viewport", nullptr,flags);
+        UI_Begin("Viewport", nullptr,flags);
 
         try
         {
@@ -1514,7 +1518,7 @@ namespace rs2
         if (!_active_popups.empty())
             show_popup(window, _active_popups.front());
 
-        ImGui::End();
+        UI_End();
         ImGui::PopStyleVar(2);
 
         error_message = "";
@@ -2386,7 +2390,7 @@ namespace rs2
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         ImGui::PushStyleColor(ImGuiCol_WindowBg, button_color);
-        ImGui::Begin("Toolbar Panel", nullptr, flags);
+        UI_Begin("Toolbar Panel", nullptr, flags);
 
         ImGui::PushFont(window.get_large_font());
         ImGui::PushStyleColor(ImGuiCol_Border, black);
@@ -2396,7 +2400,7 @@ namespace rs2
         ImGui::SetCursorPosX(window.width() - panel_width - panel_y * (buttons));
         ImGui::PushStyleColor(ImGuiCol_Text, is_3d_view ? light_grey : light_blue);
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, is_3d_view ? light_grey : light_blue);
-        if (ImGui::Button("2D", { panel_y, panel_y }))
+        if (UI_Button("2D", { panel_y, panel_y }))
         {
             is_3d_view = false;
             config_file::instance().set(configurations::viewer::is_3d_view, is_3d_view);
@@ -2409,7 +2413,7 @@ namespace rs2
 
         ImGui::PushStyleColor(ImGuiCol_Text, !is_3d_view ? light_grey : light_blue);
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, !is_3d_view ? light_grey : light_blue);
-        if (ImGui::Button("3D", { panel_y,panel_y }))
+        if (UI_Button("3D", { panel_y,panel_y }))
         {
             is_3d_view = true;
             config_file::instance().set(configurations::viewer::is_3d_view, is_3d_view);
@@ -2425,7 +2429,7 @@ namespace rs2
         ImGui::PushStyleColor(ImGuiCol_Text, !settings_open ? light_grey : light_blue);
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, !settings_open ? light_grey : light_blue);
 
-        if (ImGui::Button(textual_icons::cog, { panel_y,panel_y }))
+        if (UI_Button(textual_icons::cog, { panel_y,panel_y }))
         {
             ImGui::OpenPopup("More Options");
         }
@@ -2443,7 +2447,7 @@ namespace rs2
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, button_color);
             ImGui::PushStyleColor(ImGuiCol_Text, light_grey);
             ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_red);
-            if (ImGui::Button(textual_icons::power_off, { panel_y,panel_y }))
+            if (UI_Button(textual_icons::power_off, { panel_y,panel_y }))
             {
                 exit(0);
             }
@@ -2475,28 +2479,28 @@ namespace rs2
         ImVec2 popup_size = { 6.f * window.get_font_size(), popup_height };
         ImGui::SetNextWindowSize( popup_size );
 
-        if (ImGui::BeginPopup("More Options"))
+        if (UI_BeginPopup("More Options"))
         {
             settings_open = true;
 
-            if( ImGui::Selectable( menu_items[0] ) )
+            if( UI_Selectable( menu_items[0] ) )
             {
                 open_issue(devices);
             }
 
-            if( ImGui::Selectable( menu_items[1] ) )
+            if( UI_Selectable( menu_items[1] ) )
             {
                 open_url("https://store.realsenseai.com/");
             }
 
-            if( ImGui::Selectable( menu_items[2] ) )
+            if( UI_Selectable( menu_items[2] ) )
             {
                 open_settings_popup = true;
             }
 
             ImGui::Separator();
 
-            if( ImGui::Selectable( menu_items[3] ) )
+            if( UI_Selectable( menu_items[3] ) )
             {
                 open_about_popup = true;
             }
@@ -2543,7 +2547,7 @@ namespace rs2
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(15, 15));
             ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 1);
 
-            if (ImGui::BeginPopupModal(menu_items[2], nullptr, flags))
+            if (UI_BeginPopupModal(menu_items[2], nullptr, flags))
             {
                 if (ImGui::IsWindowHovered()) window.set_hovered_over_input();
 
@@ -2554,7 +2558,7 @@ namespace rs2
 
                 ImGui::PushStyleColor(ImGuiCol_Text, tab != 0 ? light_grey : light_blue);
                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, tab != 0 ? light_grey : light_blue);
-                if (ImGui::Button("Playback & Record", { 170, 30}))
+                if (UI_Button("Playback & Record", { 170, 30}))
                 {
                     tab = 0;
                     config_file::instance().set(configurations::viewer::settings_tab, tab);
@@ -2565,7 +2569,7 @@ namespace rs2
 
                 ImGui::PushStyleColor(ImGuiCol_Text, tab != 1 ? light_grey : light_blue);
                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, tab != 1 ? light_grey : light_blue);
-                if (ImGui::Button("Performance", { 150, 30}))
+                if (UI_Button("Performance", { 150, 30}))
                 {
                     tab = 1;
                     config_file::instance().set(configurations::viewer::settings_tab, tab);
@@ -2576,7 +2580,7 @@ namespace rs2
 
                 ImGui::PushStyleColor(ImGuiCol_Text, tab != 2 ? light_grey : light_blue);
                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, tab != 2 ? light_grey : light_blue);
-                if (ImGui::Button("General", { 100, 30}))
+                if (UI_Button("General", { 100, 30}))
                 {
                     tab = 2;
                     config_file::instance().set(configurations::viewer::settings_tab, tab);
@@ -2588,7 +2592,7 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_Text, tab != 3 ? light_grey : light_blue);
                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, tab != 3 ? light_grey : light_blue);
 
-                if (ImGui::Button("Updates", { 120, 30 }))
+                if (UI_Button("Updates", { 120, 30 }))
                 {
                     tab = 3;
                     config_file::instance().set(configurations::viewer::settings_tab, tab);
@@ -2605,18 +2609,18 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_PopupBg, dark_window_background);
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5, 5));
                 ImVec2 child_size = ImVec2(0, ImGui::GetContentRegionAvail().y-50);
-                if (ImGui::BeginChild("ScrollableRegion", child_size, true, ImGuiWindowFlags_AlwaysVerticalScrollbar))
+                if (UI_BeginChild("ScrollableRegion", child_size, true, ImGuiWindowFlags_AlwaysVerticalScrollbar))
                 {
                 if (tab == 0)
                 {
                     int recording_setting = temp_cfg.get(configurations::record::file_save_mode);
                     ImGui::Text("When starting a new recording:");
-                    if (ImGui::RadioButton("Select filename automatically", recording_setting == 0))
+                    if (UI_RadioButton("Select filename automatically", recording_setting == 0))
                     {
                         recording_setting = 0;
                         temp_cfg.set(configurations::record::file_save_mode, recording_setting);
                     }
-                    if (ImGui::RadioButton("Ask me every time", recording_setting == 1))
+                    if (UI_RadioButton("Ask me every time", recording_setting == 1))
                     {
                         recording_setting = 1;
                         temp_cfg.set(configurations::record::file_save_mode, recording_setting);
@@ -2628,7 +2632,7 @@ namespace rs2
                     std::string path_str = temp_cfg.get(configurations::record::default_path);
                     memcpy(path, path_str.c_str(), std::min(255, (int)path_str.size()));
 
-                    if (ImGui::InputText("##default_record_path", path, 255))
+                    if (UI_InputText("##default_record_path", path, 255))
                     {
                         path_str = path;
                         temp_cfg.set(configurations::record::default_path, path_str);
@@ -2638,17 +2642,17 @@ namespace rs2
 
                     ImGui::Text("ROS-bag Compression:");
                     int recording_compression = temp_cfg.get(configurations::record::compression_mode);
-                    if (ImGui::RadioButton("Always Compress (might cause frame drops)", recording_compression == 0))
+                    if (UI_RadioButton("Always Compress (might cause frame drops)", recording_compression == 0))
                     {
                         recording_compression = 0;
                         temp_cfg.set(configurations::record::compression_mode, recording_compression);
                     }
-                    if (ImGui::RadioButton("Never Compress (larger .bag file size)", recording_compression == 1))
+                    if (UI_RadioButton("Never Compress (larger .bag file size)", recording_compression == 1))
                     {
                         recording_compression = 1;
                         temp_cfg.set(configurations::record::compression_mode, recording_compression);
                     }
-                    if (ImGui::RadioButton("Use device defaults", recording_compression == 2))
+                    if (UI_RadioButton("Use device defaults", recording_compression == 2))
                     {
                         recording_compression = 2;
                         temp_cfg.set(configurations::record::compression_mode, recording_compression);
@@ -2667,7 +2671,7 @@ namespace rs2
                     ImGui::PushItemWidth(80);
                     float slider_position_x = ImGui::GetCursorPosX();
 
-                    if (ImGui::SliderInt("##font_samples", &font_samples, 1, 8))
+                    if (UI_SliderInt("##font_samples", &font_samples, 1, 8))
                     {
                         reload_required = true;
                         temp_cfg.set(configurations::performance::font_oversample, font_samples);
@@ -2684,7 +2688,7 @@ namespace rs2
                     ImGui::PushItemWidth( 80 );
                     ImGui::SetCursorPosX( slider_position_x );
 
-                    if( ImGui::SliderInt( "##font_size", &font_size, 16, 20 ) )
+                    if( UI_SliderInt( "##font_size", &font_size, 16, 20 ) )
                     {
                         reload_required = true;
                         temp_cfg.set( configurations::window::font_size, font_size );
@@ -2693,7 +2697,7 @@ namespace rs2
 
 #ifndef __APPLE__ // Not available at the moment on Mac
                     bool gpu_rendering = temp_cfg.get(configurations::performance::glsl_for_rendering);
-                    if (ImGui::Checkbox("Use GLSL for Rendering", &gpu_rendering))
+                    if (UI_Checkbox("Use GLSL for Rendering", &gpu_rendering))
                     {
                         refresh_required = true;
                         temp_cfg.set(configurations::performance::glsl_for_rendering, gpu_rendering);
@@ -2702,7 +2706,7 @@ namespace rs2
                         RsImGui::CustomTooltip("Using OpenGL 3 shaders is a widely supported way to boost rendering speeds on modern GPUs.");
 
                     bool gpu_processing = temp_cfg.get(configurations::performance::glsl_for_processing);
-                    if (ImGui::Checkbox("Use GLSL for Processing", &gpu_processing))
+                    if (UI_Checkbox("Use GLSL for Processing", &gpu_processing))
                     {
                         refresh_required = true;
                         temp_cfg.set(configurations::performance::glsl_for_processing, gpu_processing);
@@ -2721,7 +2725,7 @@ namespace rs2
                     }
 #endif
                     bool msaa = temp_cfg.get(configurations::performance::enable_msaa);
-                    if (ImGui::Checkbox("Enable Multisample Anti-Aliasing (MSAA)", &msaa))
+                    if (UI_Checkbox("Enable Multisample Anti-Aliasing (MSAA)", &msaa))
                     {
                         reload_required = true;
                         temp_cfg.set(configurations::performance::enable_msaa, msaa);
@@ -2734,7 +2738,7 @@ namespace rs2
                         int samples = temp_cfg.get(configurations::performance::msaa_samples);
                         ImGui::Text("MSAA Samples: "); ImGui::SameLine();
                         ImGui::PushItemWidth(160);
-                        if (ImGui::SliderInt("##samples", &samples, 2, 16))
+                        if (UI_SliderInt("##samples", &samples, 2, 16))
                         {
                             reload_required = true;
                             temp_cfg.set(configurations::performance::msaa_samples, samples);
@@ -2743,7 +2747,7 @@ namespace rs2
                     }
 
                     bool show_fps = temp_cfg.get(configurations::performance::show_fps);
-                    if (ImGui::Checkbox("Show Application FPS (rendering FPS)", &show_fps))
+                    if (UI_Checkbox("Show Application FPS (rendering FPS)", &show_fps))
                     {
                         reload_required = true;
                         temp_cfg.set(configurations::performance::show_fps, show_fps);
@@ -2753,7 +2757,7 @@ namespace rs2
 
 
                     bool vsync = temp_cfg.get(configurations::performance::vsync);
-                    if (ImGui::Checkbox("Enable VSync", &vsync))
+                    if (UI_Checkbox("Enable VSync", &vsync))
                     {
                         reload_required = true;
                         temp_cfg.set(configurations::performance::vsync, vsync);
@@ -2762,14 +2766,14 @@ namespace rs2
                         RsImGui::CustomTooltip("Vertical sync will try to synchronize application framerate to the monitor refresh-rate (usually limiting the framerate to 60)");
 
                     bool fullscreen = temp_cfg.get(configurations::window::is_fullscreen);
-                    if (ImGui::Checkbox("Fullscreen (F8)", &fullscreen))
+                    if (UI_Checkbox("Fullscreen (F8)", &fullscreen))
                     {
                         reload_required = true;
                         temp_cfg.set(configurations::window::is_fullscreen, fullscreen);
                     }
 
                     bool show_skybox = temp_cfg.get(configurations::performance::show_skybox);
-                    if (ImGui::Checkbox("Show Skybox in 3D View", &show_skybox))
+                    if (UI_Checkbox("Show Skybox in 3D View", &show_skybox))
                     {
                         temp_cfg.set(configurations::performance::show_skybox, show_skybox);
                     }
@@ -2777,7 +2781,7 @@ namespace rs2
                         RsImGui::CustomTooltip("When enabled, this option provides background to the 3D view, instead of leaving it blank.\nThis is purely cosmetic");
 
                     bool enable_occlusion_invalidation = temp_cfg.get(configurations::performance::occlusion_invalidation);
-                    if (ImGui::Checkbox("Perform Occlusion Invalidation", &enable_occlusion_invalidation))
+                    if (UI_Checkbox("Perform Occlusion Invalidation", &enable_occlusion_invalidation))
                     {
                         temp_cfg.set(configurations::performance::occlusion_invalidation, enable_occlusion_invalidation);
                     }
@@ -2810,7 +2814,7 @@ namespace rs2
                     bool log_to_console = temp_cfg.get( configurations::viewer::log_to_console );
                     if( _disable_log_to_console )
                         ImGui::PushStyleVar( ImGuiStyleVar_Alpha, 0.6f );
-                    if( ImGui::Checkbox( "Output librealsense log to console", &log_to_console ) )
+                    if( UI_Checkbox( "Output librealsense log to console", &log_to_console ) )
                         temp_cfg.set( configurations::viewer::log_to_console, log_to_console );
                     if( _disable_log_to_console )
                     {
@@ -2821,7 +2825,7 @@ namespace rs2
                         }
                     }
                     bool log_to_file = temp_cfg.get(configurations::viewer::log_to_file);
-                    if (ImGui::Checkbox("Output librealsense log to file", &log_to_file))
+                    if (UI_Checkbox("Output librealsense log to file", &log_to_file))
                     {
                         temp_cfg.set(configurations::viewer::log_to_file, log_to_file);
                     }
@@ -2834,7 +2838,7 @@ namespace rs2
                         std::string path_str = temp_cfg.get(configurations::viewer::log_filename);
                         memcpy(logpath, path_str.c_str(), std::min(255, (int)path_str.size()));
 
-                        if (ImGui::InputText("##default_log_path", logpath, 255))
+                        if (UI_InputText("##default_log_path", logpath, 255))
                         {
                             path_str = logpath;
                             temp_cfg.set(configurations::viewer::log_filename, path_str);
@@ -2870,7 +2874,7 @@ namespace rs2
                         std::string path_str = temp_cfg.get(configurations::viewer::commands_xml);
                         memcpy(logpath, path_str.c_str(), std::min(255, (int)path_str.size()));
 
-                        if (ImGui::InputText("##commands_xml_path", logpath, 255))
+                        if (UI_InputText("##commands_xml_path", logpath, 255))
                         {
                             path_str = logpath;
                             temp_cfg.set(configurations::viewer::commands_xml, path_str);
@@ -2885,14 +2889,14 @@ namespace rs2
                         std::string path_str = temp_cfg.get(configurations::viewer::hwlogger_xml);
                         memcpy(logpath, path_str.c_str(), std::min(255, (int)path_str.size()));
 
-                        if (ImGui::InputText("##fw_log_xml_path", logpath, 255))
+                        if (UI_InputText("##fw_log_xml_path", logpath, 255))
                         {
                             path_str = logpath;
                             temp_cfg.set(configurations::viewer::hwlogger_xml, path_str);
                         }
 
                         ImGui::SameLine();
-                        if( ImGui::Button( "FW logs XML" ) )
+                        if( UI_Button( "FW logs XML" ) )
                         {
                             auto ret = file_dialog_open(open_file, "XML file\0*.xml\0", NULL, NULL);
                             if( ret )
@@ -2909,13 +2913,13 @@ namespace rs2
 
                     ImGui::Text("RealSense tools settings capture the state of UI, and not of the hardware:");
 
-                    if (ImGui::Button(" Restore Defaults "))
+                    if (UI_Button(" Restore Defaults "))
                     {
                         reload_required = true;
                         temp_cfg = config_file();
                     }
                     ImGui::SameLine();
-                    if (ImGui::Button(" Export Settings "))
+                    if (UI_Button(" Export Settings "))
                     {
                         auto ret = file_dialog_open(save_file, "JavaScript Object Notation (JSON)\0*.json\0", NULL, NULL);
                         if (ret)
@@ -2931,7 +2935,7 @@ namespace rs2
                         }
                     }
                     ImGui::SameLine();
-                    if (ImGui::Button(" Import Settings "))
+                    if (UI_Button(" Import Settings "))
                     {
                         auto ret = file_dialog_open(open_file, "JavaScript Object Notation (JSON)\0*.json\0", NULL, NULL);
                         if (ret)
@@ -2949,7 +2953,7 @@ namespace rs2
                     ImGui::Separator();
                     bool enable_dds = temp_cfg.get_nested<bool>("context.dds.enabled" , false);
                     int domain_id = temp_cfg.get_nested<int>("context.dds.domain" , 0);
-                    if( ImGui::Checkbox( "Enable DDS", &enable_dds ) )
+                    if( UI_Checkbox( "Enable DDS", &enable_dds ) )
                     {
                         temp_cfg.set_nested("context.dds.enabled", enable_dds);
                     }
@@ -2960,7 +2964,7 @@ namespace rs2
                         ImGui::PushItemWidth( 150.0f );
                         ImGui::Text( "Domain ID" );
                         ImGui::SameLine();
-                        if( ImGui::InputInt( "##Domain ID", &domain_id ) )
+                        if( UI_InputInt( "##Domain ID", &domain_id ) )
                         {
                             if( domain_id < 0 )
                                 domain_id = 0;
@@ -2982,7 +2986,7 @@ namespace rs2
                 if (tab == 3)
                 {
                     bool recommend_fw_updates = temp_cfg.get(configurations::update::recommend_updates);
-                    if (ImGui::Checkbox("Recommend Bundled Firmware", &recommend_fw_updates))
+                    if (UI_Checkbox("Recommend Bundled Firmware", &recommend_fw_updates))
                     {
                         temp_cfg.set(configurations::update::recommend_updates, recommend_fw_updates);
                         refresh_updates = true;
@@ -3005,14 +3009,14 @@ namespace rs2
                     static char custom_url[256] = { 0 };
                     static std::string url_str = (temp_cfg.get(configurations::update::sw_updates_url));
                     memcpy(custom_url, url_str.c_str(), std::min(255, (int)url_str.size()));
-                    if (ImGui::RadioButton("Official Server", official_url))
+                    if (UI_RadioButton("Official Server", official_url))
                     {
                         official_url = true;
                         temp_cfg.set(configurations::update::sw_updates_url, server_versions_db_url);
                         temp_cfg.set(configurations::update::sw_updates_official_server, true);
                     }
                     ImGui::SameLine();
-                    if (ImGui::RadioButton("Custom Server", !official_url))
+                    if (UI_RadioButton("Custom Server", !official_url))
                     {
                         official_url = false;
                         temp_cfg.set(configurations::update::sw_updates_official_server, false);
@@ -3029,7 +3033,7 @@ namespace rs2
 
                     if (!official_url)
                     {
-                        if (ImGui::InputText("##custom_server_url", custom_url, 255))
+                        if (UI_InputText("##custom_server_url", custom_url, 255))
                         {
                             url_str = custom_url;
                             temp_cfg.set(configurations::update::sw_updates_url, url_str);
@@ -3070,7 +3074,7 @@ namespace rs2
                 };
 
                 ImGui::SetCursorScreenPos({ (float)(x0 + w / 2 - 190), (float)(y0 + h - 30) });
-                if (ImGui::Button("OK", ImVec2(120, 0)))
+                if (UI_Button("OK", ImVec2(120, 0)))
                 {
                     ImGui::CloseCurrentPopup();
                     apply();
@@ -3084,7 +3088,7 @@ namespace rs2
                 auto configs_same = temp_cfg == config_file::instance();
                 ImGui::PushStyleColor(ImGuiCol_Text, configs_same ? light_grey : light_blue);
                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, configs_same ? light_grey : light_blue);
-                if (ImGui::Button("Apply", ImVec2(120, 0)))
+                if (UI_Button("Apply", ImVec2(120, 0)))
                 {
                     apply();
                 }
@@ -3094,7 +3098,7 @@ namespace rs2
                     RsImGui::CustomTooltip("%s", "Save settings");
                 }
                 ImGui::SameLine();
-                if (ImGui::Button("Cancel", ImVec2(120, 0)))
+                if (UI_Button("Cancel", ImVec2(120, 0)))
                 {
                     ImGui::CloseCurrentPopup();
                 }
@@ -3135,7 +3139,7 @@ namespace rs2
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(15, 15));
             ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 1);
 
-            if (ImGui::BeginPopupModal(menu_items[3], nullptr, flags))
+            if (UI_BeginPopupModal(menu_items[3], nullptr, flags))
             {
                 // splash original width, height
                 auto width = 1920;
@@ -3191,7 +3195,7 @@ namespace rs2
 
 
                 ImGui::SetCursorScreenPos({ (float)(x0 + w / 2 - 60), (float)(y0 + h - 30) });
-                if (ImGui::Button("OK", ImVec2(120, 0))) ImGui::CloseCurrentPopup();
+                if (UI_Button("OK", ImVec2(120, 0))) ImGui::CloseCurrentPopup();
 
                 ImGui::EndPopup();
             }
@@ -3220,7 +3224,7 @@ namespace rs2
         ImGui::PopStyleColor(4);
         ImGui::PopFont();
 
-        ImGui::End();
+        UI_End();
         ImGui::PopStyleColor();
         ImGui::PopStyleVar();
     }

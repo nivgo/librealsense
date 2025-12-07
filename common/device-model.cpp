@@ -13,6 +13,7 @@
 #include "imgui-fonts-fontawesome.hpp"
 #include "imgui-fonts-monofont.hpp"
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 
 #include <rsutils/os/special-folder.h>
 #include "os.h"
@@ -570,7 +571,7 @@ namespace rs2
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + space_width);
         std::string label = rsutils::string::from() << textual_icons::step_backward << "##Step Backward " << id;
         RsImGui::RsImButton([&](){
-        if (ImGui::ButtonEx(label.c_str(), button_dim))
+        if (UI_Button(label.c_str(), button_dim))
         {
             int fps = 0;
             for (auto&& s : viewer.streams)
@@ -599,7 +600,7 @@ namespace rs2
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + space_width);
         label = rsutils::string::from() << textual_icons::stop << "##Stop Playback " << id;
 
-        if (ImGui::ButtonEx(label.c_str(), button_dim))
+        if (UI_Button(label.c_str(), button_dim))
         {
             bool prev = _playback_repeat;
             _playback_repeat = false;
@@ -621,7 +622,7 @@ namespace rs2
         if (current_playback_status == RS2_PLAYBACK_STATUS_PAUSED || current_playback_status == RS2_PLAYBACK_STATUS_STOPPED)
         {
             label = rsutils::string::from() << textual_icons::play << "##Play " << id;
-            if (ImGui::ButtonEx(label.c_str(), button_dim))
+            if (UI_Button(label.c_str(), button_dim))
             {
                 if (current_playback_status == RS2_PLAYBACK_STATUS_STOPPED)
                 {
@@ -649,7 +650,7 @@ namespace rs2
         else
         {
             label = rsutils::string::from() << textual_icons::pause << "##Pause Playback " << id;
-            if (ImGui::ButtonEx(label.c_str(), button_dim))
+            if (UI_Button(label.c_str(), button_dim))
             {
                 p.pause();
                 for (auto&& s : subdevices)
@@ -675,7 +676,7 @@ namespace rs2
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + space_width);
         label = rsutils::string::from() << textual_icons::step_forward << "##Step Forward " << id;
         RsImGui::RsImButton([&]() {
-        if (ImGui::ButtonEx(label.c_str(), button_dim))
+        if (UI_Button(label.c_str(), button_dim))
         {
             int fps = 0;
             for (auto&& s : viewer.streams)
@@ -711,7 +712,7 @@ namespace rs2
             ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, white);
         }
         label = rsutils::string::from() << textual_icons::repeat << "##Repeat " << id;
-        if (ImGui::ButtonEx(label.c_str(), button_dim))
+        if (UI_Button(label.c_str(), button_dim))
         {
             _playback_repeat = !_playback_repeat;
         }
@@ -808,7 +809,7 @@ namespace rs2
         float seek_bar_width = 300.f;
         ImGui::PushItemWidth(seek_bar_width);
         std::string label1 = "## " + id;
-        if (ImGui::SliderInt(label1.c_str(), &seek_pos, 0, 100, ""))
+        if (UI_SliderInt(label1.c_str(), &seek_pos, 0, 100, ""))
         {
             //Seek was dragged
             if (playback_status != RS2_PLAYBACK_STATUS_STOPPED) //Ignore seek when playback is stopped
@@ -880,7 +881,7 @@ namespace rs2
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, { 0.9f, 0.9f, 0.9f, 1 });
 
         auto is_advanced_mode = dev.is<advanced_mode>();
-        if (is_advanced_mode && ImGui::TreeNode("Advanced Controls"))
+        if (is_advanced_mode && UI_TreeNode("Advanced Controls"))
         {
             try
             {
@@ -897,7 +898,7 @@ namespace rs2
                     ImGui::TextColored(redish, "Device is not in advanced mode");
                     std::string button_text = rsutils::string::from() << "Turn on Advanced Mode" << "##" << id;
                     static bool show_yes_no_modal = false;
-                    if (ImGui::Button(button_text.c_str(), ImVec2{ 226, 0 }))
+                    if (UI_Button(button_text.c_str(), ImVec2{ 226, 0 }))
                     {
                         show_yes_no_modal = true;
                     }
@@ -931,7 +932,7 @@ namespace rs2
         auto info_button_color = show_device_info ? light_blue : light_grey;
         ImGui::PushStyleColor(ImGuiCol_Text, info_button_color);
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, info_button_color);
-        if (ImGui::Button(info_button_name.c_str(), size))
+        if (UI_Button(info_button_name.c_str(), size))
         {
             show_device_info = !show_device_info;
         }
@@ -1243,7 +1244,7 @@ namespace rs2
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, record_button_color);
 
         RsImGui::RsImButton([&]() {
-        if (ImGui::ButtonEx(record_button_name.c_str(), device_panel_icons_size))
+        if (UI_Button(record_button_name.c_str(), device_panel_icons_size))
         {
             if (is_recording) //is_recording is changed inside stop/start_recording
             {
@@ -1294,7 +1295,7 @@ namespace rs2
         ImGui::PopFont();
         ImGui::PushFont(window.get_large_font());
         RsImGui::RsImButton([&]() {
-        if (ImGui::ButtonEx(sync_button_name.c_str(), device_panel_icons_size))
+        if (UI_Button(sync_button_name.c_str(), device_panel_icons_size))
         {
             is_sync_enabled = !is_sync_enabled;
         }
@@ -1320,7 +1321,7 @@ namespace rs2
         std::string bars_button_name = rsutils::string::from() << textual_icons::bars << "##" << id;
         ImGui::PopFont();
         ImGui::PushFont(window.get_large_font());
-        if (ImGui::Button(bars_button_name.c_str(), device_panel_icons_size))
+        if (UI_Button(bars_button_name.c_str(), device_panel_icons_size))
         {
             ImGui::OpenPopup(label.c_str());
         }
@@ -1332,7 +1333,7 @@ namespace rs2
             window.link_hovered();
         }
         bool open_calibration_ui = false;
-        if (ImGui::BeginPopup(label.c_str()))
+        if (UI_BeginPopup(label.c_str()))
         {
 
             bool something_to_show = false;
@@ -1346,7 +1347,7 @@ namespace rs2
                 {
                     const bool is_advanced_mode_enabled = adv.is_enabled();
                     bool selected = is_advanced_mode_enabled;
-                    if (ImGui::MenuItem("Advanced Mode", nullptr, &selected))
+                    if (UI_MenuItem("Advanced Mode", nullptr, &selected))
                     {
                         show_advanced_mode_popup = true;
                     }
@@ -1354,7 +1355,7 @@ namespace rs2
                     ImGui::Separator();
                 }
 
-                if (ImGui::Selectable("Hardware Reset"))
+                if (UI_Selectable("Hardware Reset"))
                 {
                     try
                     {
@@ -1376,7 +1377,7 @@ namespace rs2
 
                 if (dev.is<rs2::updatable>() || dev.is<rs2::update_device>())
                 {
-                    if (ImGui::Selectable("Update Firmware", false, updateFwFlags))
+                    if (UI_Selectable("Update Firmware", false, updateFwFlags))
                     {
                         begin_update({}, viewer, error_message);
                     }
@@ -1391,7 +1392,7 @@ namespace rs2
                     if( dev.supports( RS2_CAMERA_INFO_PRODUCT_LINE )
                         && ( dev.get_info( RS2_CAMERA_INFO_PRODUCT_LINE ) ) )
                     {
-                        if( ImGui::Selectable( "Check For Updates", false, updateFwFlags ) )
+                        if( UI_Selectable( "Check For Updates", false, updateFwFlags ) )
                         {
                             // Remove all previous SW/FW update notifications before triggering checking for updates logic
                             for( auto && n : related_notifications )
@@ -1423,7 +1424,7 @@ namespace rs2
                         
                     if( is_d400_device )
                     {    
-                        if (ImGui::Selectable("Update Unsigned Firmware...", false, updateFwFlags))
+                        if (UI_Selectable("Update Unsigned Firmware...", false, updateFwFlags))
                         {
                             begin_update_unsigned(viewer, error_message);
                         }
@@ -1440,7 +1441,7 @@ namespace rs2
                 ImGuiSelectableFlags is_streaming_flag = (is_streaming) ? ImGuiSelectableFlags_Disabled : ImGuiSelectableFlags_None;
                 if( _dds_model.supports_DDS() )
                 {
-                    if( ImGui::Selectable( "DDS Configuration", false, is_streaming_flag ) )
+                    if( UI_Selectable( "DDS Configuration", false, is_streaming_flag ) )
                     {
                         _dds_model.open_dds_tool_window();
                     }
@@ -1497,21 +1498,21 @@ namespace rs2
 
         ImGui::PushStyleColor(ImGuiCol_Text, record_button_color);
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, record_button_color);
-        RsImGui::RsImButton([&]() {ImGui::ButtonEx(is_recording ? "Stop" : "Record", device_panel_icons_size);}, !is_streaming);
+        RsImGui::RsImButton([&]() {UI_Button(is_recording ? "Stop" : "Record", device_panel_icons_size);}, !is_streaming);
         if (ImGui::IsItemHovered() && is_streaming) window.link_hovered();
         ImGui::PopStyleColor(2);
 
         ImGui::SameLine();  
-        RsImGui::RsImButton([&]() {ImGui::ButtonEx("Sync", device_panel_icons_size);},true);
+        RsImGui::RsImButton([&]() {UI_Button("Sync", device_panel_icons_size);},true);
 
         auto info_button_color = show_device_info ? light_blue : light_grey;
         ImGui::PushStyleColor(ImGuiCol_Text, info_button_color);
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, info_button_color);
-        ImGui::SameLine(); ImGui::ButtonEx("Info", device_panel_icons_size);
+        ImGui::SameLine(); UI_Button("Info", device_panel_icons_size);
         if (ImGui::IsItemHovered()) window.link_hovered();
         ImGui::PopStyleColor(2);
 
-        ImGui::SameLine(); ImGui::ButtonEx("More", device_panel_icons_size);
+        ImGui::SameLine(); UI_Button("More", device_panel_icons_size);
         if (ImGui::IsItemHovered()) window.link_hovered();
         ImGui::PopStyleColor(3);
 
@@ -2110,7 +2111,7 @@ namespace rs2
         
         bool load_button_disabled = (is_streaming && !load_json_if_streaming) || buttons_disable;
         RsImGui::RsImButton([&]() {
-        if (ImGui::ButtonEx(upload_button_name.c_str(), icons_size))
+        if (UI_Button(upload_button_name.c_str(), icons_size))
         {
             if (serializable && (!is_advanced_device || is_advanced_mode_enabled))
             {
@@ -2151,7 +2152,7 @@ namespace rs2
         std::string save_button_name = rsutils::string::from() << textual_icons::download << "##" << id;
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 1); //Align the two icons to buttom
         RsImGui::RsImButton([&]() {
-        if (ImGui::ButtonEx(save_button_name.c_str(), icons_size))
+        if (UI_Button(save_button_name.c_str(), icons_size))
         {
             if (serializable && (!is_advanced_device || is_advanced_mode_enabled))
             {
@@ -2316,7 +2317,7 @@ namespace rs2
             float horizontal_distance_from_right_side_of_panel = 47;
             ImGui::SetCursorPos({ panel_width - horizontal_distance_from_right_side_of_panel, pos.y + 9 + (header_h - panel_height) / 2 });
             std::string remove_source_button_label = rsutils::string::from() << textual_icons::times << "##" << id;
-            if (ImGui::Button(remove_source_button_label.c_str(), { 33,35 }))
+            if (UI_Button(remove_source_button_label.c_str(), { 33,35 }))
             {
                 for (auto&& sub : subdevices)
                 {
@@ -2430,7 +2431,7 @@ namespace rs2
                 ImGui::PushStyleColor(ImGuiCol_Text, light_grey);
                 ImGui::SetCursorPos({ rc.x + 9.f * window.get_font_size(), rc.y + 1 });
                 std::string label = rsutils::string::from() << "##" << id << " " << pair.first;
-                ImGui::InputText(label.c_str(),
+                UI_InputText(label.c_str(),
                     (char*)pair.second.data(),
                     pair.second.size() + 1,
                     ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_ReadOnly);
@@ -2518,7 +2519,7 @@ namespace rs2
                         }
                         if (can_stream)
                         {
-                            if( ImGui::Button( label.c_str(), button_size ) )
+                            if( UI_Button( label.c_str(), button_size ) )
                             {
                                 if (profiles.empty()) // profiles might be already filled
                                     profiles = sub->get_selected_profiles();
@@ -2566,7 +2567,7 @@ namespace rs2
                         RsImGui_ScopePushStyleColor(ImGuiCol_Text, light_blue);
                         RsImGui_ScopePushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
 
-                        if( ImGui::Button( label.c_str(), button_size ) )
+                        if( UI_Button( label.c_str(), button_size ) )
                         {
                             sub->stop(viewer.not_model);
                             std::string friendly_name = sub->s->get_info(RS2_CAMERA_INFO_NAME);
@@ -2625,7 +2626,7 @@ namespace rs2
             ImGuiTreeNodeFlags flags{};
             ImGui::AlignTextToFramePadding();//Ensures that text aligns visually with UI elements that have padding (for the TreeNode visual alignment)
             if (show_depth_only) flags = ImGuiTreeNodeFlags_DefaultOpen;
-            if (ImGui::TreeNodeEx(label.c_str(), flags))
+            if (UI_TreeNodeEx(label.c_str(), flags))
             {
                 ImGui::PopStyleVar();
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 2, 2 });
@@ -2649,7 +2650,7 @@ namespace rs2
                 if (sub->num_supported_non_default_options())
                 {
                     label = rsutils::string::from() << "Controls ##" << sub->s->get_info(RS2_CAMERA_INFO_NAME) << "," << id;
-                    if (ImGui::TreeNode(label.c_str()))
+                    if (UI_TreeNode(label.c_str()))
                     {
                         auto const & supported_options = sub->options_metadata;
 
@@ -2719,7 +2720,7 @@ namespace rs2
                         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
 
                         label = rsutils::string::from() << pb->get_name() << "##" << id;
-                        if (ImGui::TreeNode(label.c_str()))
+                        if (UI_TreeNode(label.c_str()))
                         {
                             pb->draw_options( viewer,
                                               dev.is< playback >() || update_read_only_options,
@@ -2802,7 +2803,7 @@ namespace rs2
                         ImGui::PushStyleColor(ImGuiCol_Text, redish);
                         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
 
-                        if (ImGui::Button(label.c_str(), { 30,24 }))
+                        if (UI_Button(label.c_str(), { 30,24 }))
                         {
                             sub->post_processing_enabled = true;
                             config_file::instance().set(get_post_processing_device_sensor_name(sub.get()).c_str(),
@@ -2829,7 +2830,7 @@ namespace rs2
                         ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
                         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
 
-                        if (ImGui::Button(label.c_str(), { 30,24 }))
+                        if (UI_Button(label.c_str(), { 30,24 }))
                         {
                             sub->post_processing_enabled = false;
                             config_file::instance().set(get_post_processing_device_sensor_name(sub.get()).c_str(),
@@ -2860,7 +2861,7 @@ namespace rs2
                 });
 
             label = rsutils::string::from() << "Post-Processing##" << id;
-            if (ImGui::TreeNode(label.c_str()))
+            if (UI_TreeNode(label.c_str()))
             {
                 for (auto&& pb : sub->post_processing)
                 {
@@ -2894,7 +2895,7 @@ namespace rs2
 
                                     ImGui::PushStyleColor(ImGuiCol_Text, redish);
                                     ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
-                                    RsImGui::RsImButton([&]() {ImGui::ButtonEx(label.c_str(), button_size); }, true);
+                                    RsImGui::RsImButton([&]() {UI_Button(label.c_str(), button_size); }, true);
                                 }
                                 else
                                 {
@@ -2904,7 +2905,7 @@ namespace rs2
                                         << pb->get_name();
                                     ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
                                     ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
-                                    RsImGui::RsImButton([&]() {ImGui::ButtonEx(label.c_str(), button_size); }, true);
+                                    RsImGui::RsImButton([&]() {UI_Button(label.c_str(), button_size); }, true);
                                 }
                             }
                             else
@@ -2919,7 +2920,7 @@ namespace rs2
                                     ImGui::PushStyleColor(ImGuiCol_Text, redish);
                                     ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
 
-                                    if (ImGui::Button(label.c_str(), button_size))
+                                    if (UI_Button(label.c_str(), button_size))
                                     {
                                         pb->enable(true);
                                         pb->save_to_config_file();
@@ -2940,7 +2941,7 @@ namespace rs2
                                     ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
                                     ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
 
-                                    if (ImGui::Button(label.c_str(), button_size))
+                                    if (UI_Button(label.c_str(), button_size))
                                     {
                                         pb->enable(false);
                                         pb->save_to_config_file();
@@ -2967,7 +2968,7 @@ namespace rs2
                         });
 
                     label = rsutils::string::from() << pb->get_name() << "##" << id;
-                    if (ImGui::TreeNode(label.c_str()))
+                    if (UI_TreeNode(label.c_str()))
                     {
                         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
                         pb->draw_options(viewer,
@@ -2993,7 +2994,7 @@ namespace rs2
             const ImVec2 pos = ImGui::GetCursorPos();
 
             label = rsutils::string::from() << "Embedded-Filters##" << id;
-            if (ImGui::TreeNode(label.c_str()))
+            if (UI_TreeNode(label.c_str()))
             {
                 for (auto&& pb : sub->embedded_filters)
                 {
@@ -3026,7 +3027,7 @@ namespace rs2
                                 ImGui::PushStyleColor(ImGuiCol_Text, redish);
                                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, redish + 0.1f);
 
-                                if (ImGui::Button(label.c_str(), button_size))
+                                if (UI_Button(label.c_str(), button_size))
                                 {
                                     pb->enable(true);
                                 }
@@ -3046,7 +3047,7 @@ namespace rs2
                                 ImGui::PushStyleColor(ImGuiCol_Text, light_blue);
                                 ImGui::PushStyleColor(ImGuiCol_TextSelectedBg, light_blue + 0.1f);
 
-                                if (ImGui::Button(label.c_str(), button_size))
+                                if (UI_Button(label.c_str(), button_size))
                                 {
                                     pb->enable(false);
                                 }
@@ -3071,7 +3072,7 @@ namespace rs2
                         });
 
                     label = rsutils::string::from() << pb->get_name() << "##" << id;
-                    if (ImGui::TreeNode(label.c_str()))
+                    if (UI_TreeNode(label.c_str()))
                     {
                         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
                         pb->draw_options(viewer,
@@ -3211,8 +3212,8 @@ namespace rs2
         {
             bool selected = false;
             something_to_show = true;
-            ImGui::Selectable("On-Chip Calibration", &selected, ImGuiSelectableFlags_Disabled);
-            ImGui::Selectable("Tare Calibration", &selected, ImGuiSelectableFlags_Disabled);
+            UI_Selectable("On-Chip Calibration", &selected, ImGuiSelectableFlags_Disabled);
+            UI_Selectable("Tare Calibration", &selected, ImGuiSelectableFlags_Disabled);
         }
 
         if (!something_to_show)
@@ -3242,7 +3243,7 @@ namespace rs2
                 bool disable_fl_cal = (((device_pid == "0B5C") || show_disclaimer) &&
                     (!starts_with(device_usb_type, "3."))); // D410/D15/D455@USB2
 
-                if (ImGui::Selectable("On-Chip Calibration", false , avoid_selection_flag))
+                if (UI_Selectable("On-Chip Calibration", false , avoid_selection_flag))
                 {
                     try
                     {
@@ -3284,7 +3285,7 @@ namespace rs2
 
                 // Focal Length Calibration is disabled for D421, since this process has not been optimized for this device
                 std::string pid = dev.get_info(RS2_CAMERA_INFO_PRODUCT_ID);
-                if (pid != "1155" && ImGui::Selectable("Focal Length Calibration"))
+                if (pid != "1155" && UI_Selectable("Focal Length Calibration"))
                 {
                     try
                     {
@@ -3336,7 +3337,7 @@ namespace rs2
                 if (ImGui::IsItemHovered())
                     RsImGui::CustomTooltip("Focal length calibration is used to adjust camera focal length with specific target.");
 
-                if (ImGui::Selectable("Tare Calibration", false, avoid_selection_flag))
+                if (UI_Selectable("Tare Calibration", false, avoid_selection_flag))
                 {
                     try
                     {
@@ -3379,7 +3380,7 @@ namespace rs2
                     {
                         if (sub2->s->is<rs2::color_sensor>())
                         {
-                            if (ImGui::Selectable("UV-Mapping Calibration"))
+                            if (UI_Selectable("UV-Mapping Calibration"))
                             {
                                 if (show_disclaimer)
                                 {
@@ -3415,7 +3416,7 @@ namespace rs2
                 }
 #endif //UVMAP_CAL
 
-                //if (ImGui::Selectable("Focal Length Plus Calibration"))
+                //if (UI_Selectable("Focal Length Plus Calibration"))
                 //{
                 //    try
                 //    {
@@ -3457,7 +3458,7 @@ namespace rs2
 
                 if (_calib_model.supports())
                 {
-                    if (ImGui::Selectable("Calibration Data"))
+                    if (UI_Selectable("Calibration Data"))
                     {
                         _calib_model.open();
                     }
@@ -3467,7 +3468,7 @@ namespace rs2
 
                 if (auto fwlogger = dev.as<rs2::firmware_logger>())
                 {
-                    if (ImGui::Selectable("Recover Logs from Flash"))
+                    if (UI_Selectable("Recover Logs from Flash"))
                     {
                         try
                         {
@@ -3566,7 +3567,7 @@ namespace rs2
                         is_d555 = true;
                 }
 
-                if (ImGui::Selectable("On-Chip Calibration", false, avoid_selection_flag))
+                if (UI_Selectable("On-Chip Calibration", false, avoid_selection_flag))
                 {
                     try
                     {
@@ -3620,7 +3621,7 @@ namespace rs2
 
                 if( !is_d555 )
                 {
-                    if( ImGui::Selectable( "Dry Run On-Chip Calibration", false, avoid_selection_flag ) )
+                    if( UI_Selectable( "Dry Run On-Chip Calibration", false, avoid_selection_flag ) )
                     {
                         try
                         {
@@ -3655,7 +3656,7 @@ namespace rs2
                 }
                 else
                 {
-                    if( ImGui::Selectable( "Focal Length Calibration" ) )
+                    if( UI_Selectable( "Focal Length Calibration" ) )
                     {
                         try
                         {
@@ -3694,7 +3695,7 @@ namespace rs2
                     if( ImGui::IsItemHovered() )
                         RsImGui::CustomTooltip( "Focal length calibration is used to adjust camera focal length with specific target." );
 
-                    if( ImGui::Selectable( "Tare Calibration" ) )
+                    if( UI_Selectable( "Tare Calibration" ) )
                     {
                         try
                         {
@@ -3726,7 +3727,7 @@ namespace rs2
 
                     if (_calib_model.supports())
                     {
-                        if (ImGui::Selectable("Calibration Data"))
+                        if (UI_Selectable("Calibration Data"))
                         {
                             _calib_model.open();
                         }

@@ -2,6 +2,7 @@
 // Copyright(c) 2025 RealSense, Inc. All Rights Reserved.
 
 #include "graph-model.h"
+#include "ui_instrumentation.h"
 
 using namespace rs2;
 
@@ -64,7 +65,7 @@ void graph_model::draw(rect stream_rect)
     if(_show_n_value) 
         n_hist = shared_data.read<std::vector<float>>([&]() { return _n_history; });
 
-    ImGui::BeginChild(_name.c_str(), ImVec2(stream_rect.w + 2, stream_rect.h));
+    UI_BeginChild(_name.c_str(), ImVec2(stream_rect.w + 2, stream_rect.h));
 
     if (ImPlot::BeginPlot(_name.c_str(), ImVec2(stream_rect.w + 2, stream_rect.h)))
     {

@@ -6,6 +6,7 @@
 #include "ux-window.h"
 #include <rsutils/string/from.h>
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 
 #include <cstdio>
 
@@ -137,7 +138,7 @@ void rs2::dds_model::ip_input_text( std::string label, ip_address & ip ) const
     std::snprintf( buffer, sizeof( buffer ), "%s", ip_str.c_str() );
     std::string label_name = "##" + label;
 
-    if( ImGui::InputText( label_name.c_str(), buffer, sizeof( buffer ) ) )
+    if( UI_InputText( label_name.c_str(), buffer, sizeof( buffer ) ) )
     {
         std::string new_ip_str( buffer );
         ip_address new_ip = ip_address( new_ip_str );
@@ -193,7 +194,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
     ImGui::PushStyleColor( ImGuiCol_ButtonActive, button_color + 0.1f );
 
 
-    if( ImGui::BeginPopupModal( window_name.c_str(), nullptr, flags ) )
+    if( UI_BeginPopupModal( window_name.c_str(), nullptr, flags ) )
     {
         if( error_message != "" )
             ImGui::CloseCurrentPopup();
@@ -218,13 +219,13 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
         float start_x = ( w - total_buttons_width ) / 2.0f;
 
         // Main Scrollable Section
-        ImGui::BeginChild( "MainContent", ImVec2( w - 10, h - 100 ), true );
+        UI_BeginChild( "MainContent", ImVec2( w - 10, h - 100 ), true );
         ImGui::PushItemWidth( 150.0f );
 
         ImGui::Text( "Domain ID" );
         ImGui::SameLine();
         int tempDomain = static_cast< int >( _domain_to_set );
-        if( ImGui::InputInt( "##Domain ID", &tempDomain ) )
+        if( UI_InputInt( "##Domain ID", &tempDomain ) )
         {
             if( tempDomain < 0 )
                 tempDomain = 0;
@@ -233,7 +234,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
             _domain_to_set = static_cast< uint32_t >( tempDomain );
         }
 
-        if( ImGui::CollapsingHeader( "Connection Priority" ) )
+        if( UI_CollapsingHeader( "Connection Priority" ) )
         {
             priority connection_priority = classify_priority( _link_priority_to_set );
             ImGui::Text( "Select connection priority:" );
@@ -245,7 +246,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
                 ImGui::Text( "Link Timeout (seconds)" );
                 ImGui::SameLine();
                 int tempTimeout = static_cast< int >( _link_timeout_to_set );
-                if( ImGui::InputInt( "##Link Timeout (seconds)", &tempTimeout ) )
+                if( UI_InputInt( "##Link Timeout (seconds)", &tempTimeout ) )
                 {
                     _link_timeout_to_set = static_cast< uint32_t >( std::max( 0, tempTimeout ) );
                 }
@@ -272,7 +273,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
             }
         }
 
-        if( ImGui::CollapsingHeader( "Network Configuration" ) )
+        if( UI_CollapsingHeader( "Network Configuration" ) )
         {
             ImGui::Checkbox( "Enable DHCP", &_dhcp_enabled_to_set );
             if( ! _dhcp_enabled_to_set )
@@ -296,7 +297,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
                 ImGui::Text( "DHCP Timeout [seconds]" );
                 ImGui::SameLine();
                 int tempTimeout = static_cast< int >( _dhcp_timeout_to_set );
-                if( ImGui::InputInt( "##DHCP Timeout", &tempTimeout ) )
+                if( UI_InputInt( "##DHCP Timeout", &tempTimeout ) )
                 {
                     if( tempTimeout > 255 )
                         tempTimeout = 255;
@@ -305,12 +306,12 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
             }
         }
 
-        if( ImGui::CollapsingHeader( "Traffic Shaping" ) )
+        if( UI_CollapsingHeader( "Traffic Shaping" ) )
         {
             ImGui::Text( "MTU [bytes]" );
             ImGui::SameLine();
             int temp_mtu = static_cast< int >( _mtu_to_set );
-            if( ImGui::InputInt( "##MTU", &temp_mtu, 500 ) )
+            if( UI_InputInt( "##MTU", &temp_mtu, 500 ) )
             {
                 if( temp_mtu < 500 )
                     temp_mtu = 500;
@@ -322,7 +323,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
             ImGui::Text( "Transmission Delay [us]" );
             ImGui::SameLine();
             int temp_delay = static_cast< int >( _tx_delay_to_set );
-            if( ImGui::InputInt( "##Transmission Delay", &temp_delay, 3 ) )
+            if( UI_InputInt( "##Transmission Delay", &temp_delay, 3 ) )
             {
                 if( temp_delay < 0 )
                     temp_delay = 0;
@@ -387,7 +388,7 @@ void dds_model::render_dds_config_window( ux_window & window, std::string & erro
             window.link_hovered();
             RsImGui::CustomTooltip( "%s", "Apply changes" );
         }
-        if( ImGui::BeginPopupModal( "No Changes Needed", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
+        if( UI_BeginPopupModal( "No Changes Needed", NULL, ImGuiWindowFlags_AlwaysAutoResize ) )
         {
             ImGui::Text( "No changes were made to the configuration." );
 

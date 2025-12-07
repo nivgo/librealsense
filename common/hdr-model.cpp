@@ -8,6 +8,7 @@
 #include <rsutils/os/special-folder.h>
 #include <rsutils/string/hexdump.h>
 #include <imgui.h>
+#include "ui_instrumentation.h"
 #include <realsense_imgui.h>
 #include <fstream>
 #include <stdexcept>
@@ -310,7 +311,7 @@ void hdr_model::render_control_item( hdr_preset::control_item & control)
     ImGui::SameLine();
     ImGui::SetNextItemWidth( 140 );
     int g = _is_auto ? control.delta_gain : control.depth_gain;
-    if (ImGui::InputInt("##gain", &g, 0, 0))
+    if (UI_InputInt("##gain", &g, 0, 0))
         if (_is_auto)
             control.delta_gain = (int)clamp((float)g, -_gain_range.max, _gain_range.max);
         else
@@ -321,7 +322,7 @@ void hdr_model::render_control_item( hdr_preset::control_item & control)
     ImGui::SameLine();
     ImGui::SetNextItemWidth( 140 );
     int e = _is_auto ? control.delta_exp : control.depth_exp;
-    if (ImGui::InputInt("##exp", &e, 0, 0))
+    if (UI_InputInt("##exp", &e, 0, 0))
         if (_is_auto)
             control.delta_exp = (int)clamp((float)e, -_exp_range.max, _exp_range.max);
         else
@@ -334,7 +335,7 @@ void hdr_model::render_preset_item( hdr_preset::preset_item & item, int idx )
 {
     ImGui::PushID( idx );
     std::string hdr = "Preset Item " + std::to_string( idx + 1 );
-    if( ImGui::CollapsingHeader( hdr.c_str() ) )
+    if( UI_CollapsingHeader( hdr.c_str() ) )
     {
         ImGui::Text( "Iterations:" );
         if (ImGui::IsItemHovered())
@@ -342,7 +343,7 @@ void hdr_model::render_preset_item( hdr_preset::preset_item & item, int idx )
         ImGui::SameLine();
         ImGui::SetNextItemWidth( 100 );
         int it = item.iterations;
-        if( ImGui::InputInt( "##it", &it ) )
+        if( UI_InputInt( "##it", &it ) )
             item.iterations = std::max( 1, it );
 
         ImGui::Separator();
@@ -376,11 +377,11 @@ void hdr_model::render_hdr_config_window( ux_window & window, std::string & erro
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, button_color + 0.1f);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, button_color + 0.1f);
 
-    if (ImGui::BeginPopupModal(window_name, nullptr, flags))
+    if (UI_BeginPopupModal(window_name, nullptr, flags))
     {
         float button_area = ImGui::GetFrameHeightWithSpacing() * 1.5f;
         ImVec2 btnSize(120, 0);
-        if (ImGui::BeginChild("HDR Container", ImVec2(0, -button_area), true))
+        if (UI_BeginChild("HDR Container", ImVec2(0, -button_area), true))
         {
             if (!error_message.empty())
                 ImGui::TextColored({ 1,0.3f,0.3f,1 }, "%s", error_message.c_str());
@@ -391,7 +392,7 @@ void hdr_model::render_hdr_config_window( ux_window & window, std::string & erro
             char buf[32];
             strncpy(buf, _changed_config.id.c_str(), 31);
             buf[31] = '\0';
-            if (ImGui::InputText("##id", buf, 32))
+            if (UI_InputText("##id", buf, 32))
                 _changed_config.id = buf;
 
             if (ImGui::Checkbox("Auto HDR", &_is_auto))

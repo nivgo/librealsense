@@ -8,7 +8,8 @@
 #endif
 
 #include "notifications.h"
-#include <imgui_internal.h>
+#include <imgui.h>
+#include "ui_instrumentation.h"
 #include <realsense_imgui.h>
 #include "model-views.h"
 #include "os.h"
@@ -272,7 +273,7 @@ namespace rs2
         ImGui::SetNextWindowSize({ 120, 70 });
 
         std::string dismiss_popup = rsutils::string::from() << "Dismiss Options" << "##" << index;
-        if (ImGui::BeginPopup(dismiss_popup.c_str()))
+        if (UI_BeginPopup(dismiss_popup.c_str()))
         {
             if (ImGui::Selectable("Just this time"))
             {
@@ -587,7 +588,7 @@ namespace rs2
 
 
             ImGui::PushStyleColor(ImGuiCol_WindowBg, { 0, 0, 0, 0 });
-            //ImGui::Begin("Notification parent window", nullptr, flags);
+            //UI_Begin("Notification parent window", nullptr, flags);
 
             //selected.set_color_scheme(0.f);
             ImGui::PushStyleColor(ImGuiCol_Text, light_grey);
@@ -599,7 +600,7 @@ namespace rs2
 
             if (selected && selected->message != "")
                 ImGui::OpenPopup("Notification from Hardware");
-            if (ImGui::BeginPopupModal("Notification from Hardware", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+            if (UI_BeginPopupModal("Notification from Hardware", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
             {
                 ImGui::Text("Received the following notification:");
 

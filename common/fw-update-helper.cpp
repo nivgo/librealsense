@@ -5,6 +5,7 @@
 #include "model-views.h"
 #include "viewer.h"
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 #include "ux-window.h"
 
 #include <rsutils/os/special-folder.h>
@@ -589,7 +590,7 @@ namespace rs2
         if (update_manager->failed()) title += " Failed";
 
         ImGui::OpenPopup(title.c_str());
-        if (ImGui::BeginPopupModal(title.c_str(), nullptr, flags))
+        if (UI_BeginPopupModal(title.c_str(), nullptr, flags))
         {
             ImGui::SetCursorPosX(200);
             std::string progress_str = rsutils::string::from() << "Progress: " << update_manager->get_progress() << "%";

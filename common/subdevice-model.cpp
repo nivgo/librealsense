@@ -5,6 +5,7 @@
 #include "post-processing-block-model.h"
 #include <imgui_internal.h>
 #include <realsense_imgui.h>
+#include "ui_instrumentation.h"
 
 #include "metadata-helper.h"
 #include "subdevice-model.h"
@@ -572,7 +573,7 @@ namespace rs2
                 {
                     auto tmp = stream_enabled;
                     label = rsutils::string::from() << stream_display_names[f.first] << "##" << f.first;
-                    if (ImGui::Checkbox(label.c_str(), &stream_enabled[f.first]))
+                    if (UI_Checkbox(label.c_str(), &stream_enabled[f.first]))
                     {
                         prev_stream_enabled = tmp;
                     }
@@ -775,7 +776,7 @@ namespace rs2
                     res = true;
                     auto tmp = stream_enabled;
                     label = rsutils::string::from() << stream_display_names[f.first] << "##" << f.first;
-                    if (ImGui::Checkbox(label.c_str(), &stream_enabled[f.first]))
+                    if (UI_Checkbox(label.c_str(), &stream_enabled[f.first]))
                     {
                         prev_stream_enabled = tmp;
                     }

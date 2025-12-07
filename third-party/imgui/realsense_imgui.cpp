@@ -6,6 +6,10 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+#ifdef RS_DUMP_UI
+#include "../../tools/realsense-viewer/ui_dump.h"
+#endif
+
 bool RsImGui::SliderIntWithSteps(const char* label, int* v, int v_min, int v_max, int v_step)
 {
     float originalValue = static_cast<float>(*v);
@@ -59,6 +63,9 @@ bool RsImGui::CustomComboBox(const char* label, int* current_item, const char* c
     const char* preview_value = (*current_item >= 0 && *current_item < items_count) ? items[*current_item] : "Select an item";
     if (ImGui::BeginCombo(label, ""))
     {
+#ifdef RS_DUMP_UI
+        ui_dump_combo_begin(label, preview_value);
+#endif
         //insert combobox items
         for (int i = 0; i < items_count; i++)
         {
@@ -68,10 +75,20 @@ bool RsImGui::CustomComboBox(const char* label, int* current_item, const char* c
                 *current_item = i;
                 value_changed = true;
             }
+#ifdef RS_DUMP_UI
+            ui_dump_combo_option(items[i], is_selected);
+#endif
             if (is_selected)
                 ImGui::SetItemDefaultFocus();
         }
+#ifdef RS_DUMP_UI
+        ui_dump_combo_end();
+#endif
         ImGui::EndCombo();
+    } else {
+#ifdef RS_DUMP_UI
+        RS_LOG_LAST("combo", label);
+#endif
     }
 
     // Center the text in the combo box when closed
