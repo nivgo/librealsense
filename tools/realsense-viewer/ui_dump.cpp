@@ -1,5 +1,7 @@
 #include "ui_dump.h"
 #include "json_normalizer.h"
+#include "ui_json_normalizer.h"
+#include "json_normalizer_comprehensive.h"
 #include <imgui_internal.h>
 #include <fstream>
 #include <iomanip>
@@ -736,11 +738,18 @@ static void write_json(const char* path, const UiDumpFrame& fr){
     std::string normalized_json;
     
     try {
-        UIJsonNormalizer normalizer;
-        normalized_json = normalizer.normalize_json_string(raw_json);
+        // Try the comprehensive normalizer with better error handling
+        normalized_json = normalize_ui_json_to_v1_2_comprehensive(raw_json);
     } catch (const std::exception& e) {
-        std::cerr << "JSON normalization failed: " << e.what() << std::endl;
-        normalized_json = raw_json; // Fall back to original JSON
+        std::cerr << "Comprehensive JSON normalization failed: " << e.what() << std::endl;
+        try {
+            // Fall back to original normalizer
+            UIJsonNormalizer normalizer;
+            normalized_json = normalizer.normalize_json_string(raw_json);
+        } catch (const std::exception& e2) {
+            std::cerr << "Original JSON normalization also failed: " << e2.what() << std::endl;
+            normalized_json = raw_json; // Fall back to raw JSON
+        }
     }
     
     // Write the normalized JSON to file
@@ -748,8 +757,91 @@ static void write_json(const char* path, const UiDumpFrame& fr){
     f << normalized_json;
 }
 
+// Function to read configuration from files (for runtime configuration)
+static void update_config_from_files() {
+    static auto last_config_check = std::chrono::steady_clock::now();
+    auto current_time = std::chrono::steady_clock::now();
+    auto time_since_check = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - last_config_check);
+    
+    // Only check config files every 1 second
+    if (time_since_check.count() < 1000) {
+        return;
+    }
+    last_config_check = current_time;
+    
+    // Check change detection enabled/disabled
+    std::ifstream change_detection_file("/tmp/rs-viewer-ui/change_detection_enabled");
+    if (change_detection_file.is_open()) {
+        std::string enabled_str;
+        change_detection_file >> enabled_str;
+        g_uidump.change_detection_enabled = (enabled_str == "true");
+        change_detection_file.close();
+    }
+    
+    // Check minimum interval
+    std::ifstream min_interval_file("/tmp/rs-viewer-ui/min_interval_ms");
+    if (min_interval_file.is_open()) {
+        min_interval_file >> g_uidump.min_interval_ms;
+        min_interval_file.close();
+    }
+    
+    // Check heartbeat interval
+    std::ifstream heartbeat_file("/tmp/rs-viewer-ui/heartbeat_interval_ms");
+    if (heartbeat_file.is_open()) {
+        heartbeat_file >> g_uidump.heartbeat_interval_ms;
+        heartbeat_file.close();
+    }
+}
+
+// Function to generate a hash representing the UI state for change detection
+static std::string generate_ui_state_hash(const UiDumpFrame& frame) {
+    std::ostringstream hash_stream;
+    
+    // Hash significant UI state components
+    hash_stream << frame.nodes.size() << "|";
+    
+    for (const auto& node : frame.nodes) {
+        // Skip certain types that might change frequently without user interaction
+        if (node.type == "tooltip_window" || 
+            node.type == "popup_window" ||
+            node.type.find("tooltip") != std::string::npos) {
+            continue; // Skip tooltips and popups as they appear/disappear frequently
+        }
+        
+        // Include key properties that indicate meaningful UI changes
+        // Round float values moderately to reduce noise from minor positioning changes
+        int min_x = (int)std::round(node.min.x / 2.0) * 2; // Round to nearest 2 pixels
+        int min_y = (int)std::round(node.min.y / 2.0) * 2;
+        int max_x = (int)std::round(node.max.x / 2.0) * 2;
+        int max_y = (int)std::round(node.max.y / 2.0) * 2;
+        
+        // Round value to 2 decimal places to reduce float precision noise
+        double rounded_value = std::round(node.value * 100.0) / 100.0;
+        
+        hash_stream << node.id << ":" << node.type << ":" << node.label_norm << ":"
+                   << node.visible << ":" << node.enabled << ":" 
+                   << node.state_open << ":" << node.state_selected << ":" 
+                   << node.checked << ":" << rounded_value << ":"
+                   << node.text_value << ":" << node.selected_value << ":" 
+                   << min_x << ":" << min_y << ":" << max_x << ":" << max_y << "|";
+    }
+    
+    // Hash container scroll states (rounded moderately to reduce noise)
+    for (const auto& container : frame.containers) {
+        int scroll_x = (int)std::round(container.second.scroll.x / 5.0) * 5; // Round to nearest 5 pixels
+        int scroll_y = (int)std::round(container.second.scroll.y / 5.0) * 5;
+        hash_stream << container.first << ":" << scroll_x << ":" << scroll_y << "|";
+    }
+    
+    return hash_stream.str();
+}
+
 void ui_dump_end_frame_and_write(const char* outdir, bool with_screenshot){
     if(!g_uidump.enabled) return;
+    
+    // Update configuration from files (allows runtime configuration)
+    update_config_from_files();
+    
     // Enumerate all ImGui windows & add missing ones + scrollbars & special popups/tooltips
     ImGuiContext* ctx = GImGui;
     if(ctx){
@@ -789,19 +881,54 @@ void ui_dump_end_frame_and_write(const char* outdir, bool with_screenshot){
         }
     }
     
-    // Throttle output to every 0.5 seconds
+    // Apply v1.2.0 normalization pass before change detection
+    normalize_frame_post_emit(g_uidump.cur);
+    
+    // Check for significant changes in UI state (if change detection is enabled)
+    static std::string last_ui_state_hash;
+    std::string current_ui_state_hash = generate_ui_state_hash(g_uidump.cur);
+    
+    // Maintain minimum time interval for responsiveness 
     static auto last_write_time = std::chrono::steady_clock::now();
     auto current_time = std::chrono::steady_clock::now();
     auto time_diff = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - last_write_time);
     
-    if(time_diff.count() < 500) {
-        return; // Skip this frame, too soon since last write
+    if (g_uidump.change_detection_enabled) {
+        // Only write if there are changes AND enough time has passed (prevent spam)
+        if (current_ui_state_hash == last_ui_state_hash && time_diff.count() < g_uidump.min_interval_ms) {
+            return; // No changes detected and too soon since last write
+        }
+        
+        // Force write after heartbeat interval even without changes (as a heartbeat)
+        if (current_ui_state_hash == last_ui_state_hash && time_diff.count() < g_uidump.heartbeat_interval_ms) {
+            return; // No changes and less than heartbeat interval since last write
+        }
+        
+        // Debug: Log when changes are detected (check for debug flag file)
+        static bool debug_logged = false;
+        std::ifstream debug_file("/tmp/rs-viewer-ui/debug_changes");
+        if (debug_file.is_open()) {
+            if (current_ui_state_hash != last_ui_state_hash && !debug_logged) {
+                std::cout << "[UI_DUMP] Change detected - hash changed from " 
+                         << last_ui_state_hash.substr(0, 16) << " to " 
+                         << current_ui_state_hash.substr(0, 16) << std::endl;
+                debug_logged = true;
+            }
+            debug_file.close();
+        } else {
+            debug_logged = false;
+        }
+    } else {
+        // Legacy behavior: fixed time interval (use min_interval_ms as the fixed interval)
+        if (time_diff.count() < g_uidump.min_interval_ms) {
+            return; // Skip this frame, too soon since last write
+        }
     }
     
     last_write_time = current_time;
-    
-    // Apply v1.2.0 normalization pass before writing
-    normalize_frame_post_emit(g_uidump.cur);
+    if (g_uidump.change_detection_enabled) {
+        last_ui_state_hash = current_ui_state_hash;
+    }
     
     char base[512];
     snprintf(base,sizeof(base),"%s/ui_%s_%06d", outdir, timestamp().c_str(), g_uidump.cur.frame_index);
@@ -1735,5 +1862,24 @@ void ui_dump_comprehensive_validation() {
         }
     }
     std::cout << "===========================================" << std::endl;
+}
+
+// Configuration API for change detection
+void ui_dump_set_change_detection(bool enabled) {
+    g_uidump.change_detection_enabled = enabled;
+    std::cout << "UI dump change detection " << (enabled ? "enabled" : "disabled") << std::endl;
+}
+
+void ui_dump_set_intervals(int min_interval_ms, int heartbeat_interval_ms) {
+    g_uidump.min_interval_ms = min_interval_ms;
+    g_uidump.heartbeat_interval_ms = heartbeat_interval_ms;
+    std::cout << "UI dump intervals updated: min=" << min_interval_ms 
+              << "ms, heartbeat=" << heartbeat_interval_ms << "ms" << std::endl;
+}
+
+void ui_dump_get_config(bool* change_detection, int* min_interval, int* heartbeat_interval) {
+    if (change_detection) *change_detection = g_uidump.change_detection_enabled;
+    if (min_interval) *min_interval = g_uidump.min_interval_ms;
+    if (heartbeat_interval) *heartbeat_interval = g_uidump.heartbeat_interval_ms;
 }
 

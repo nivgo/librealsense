@@ -220,7 +220,7 @@ endif()
 # Add conditional source files and compile definitions
 if(RS_DUMP_UI)
     target_compile_definitions(realsense-viewer PRIVATE RS_DUMP_UI=1)
-    target_sources(realsense-viewer PRIVATE ui_dump.cpp ui_dump.h json_normalizer.cpp json_normalizer.h)
+    target_sources(realsense-viewer PRIVATE ui_dump.cpp ui_dump.h json_normalizer.cpp json_normalizer.h ui_json_normalizer.cpp ui_json_normalizer.h json_normalizer_comprehensive.cpp json_normalizer_comprehensive.h real_ui_discovery.cpp real_ui_discovery.h)
 endif()
 
 if(RS_API)

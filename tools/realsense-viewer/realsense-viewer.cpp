@@ -665,6 +665,13 @@ int main(int argc, const char** argv) try
             ui_dump_comprehensive_validation();
         }
         
+        // Check for F12 key to toggle change detection mode
+        if (ImGui::IsKeyPressed(ImGui::GetKeyIndex(ImGuiKey_F12))) {
+            bool current_change_detection;
+            ui_dump_get_config(&current_change_detection, nullptr, nullptr);
+            ui_dump_set_change_detection(!current_change_detection);
+        }
+        
         ui_dump_end_frame_and_write("/tmp/rs-viewer-ui", true);
 #endif
         }
